@@ -13,6 +13,7 @@ Current status:
 | Area | Status |
 | --- | --- |
 | Project skeleton | Done |
+| Scene splitting + ffmpeg normalization | Done |
 | Clip metadata schema | Done |
 | Quality filters | Done |
 | Motion feature extraction | Done |
@@ -35,26 +36,30 @@ The pipeline is intentionally modular:
 
 ```mermaid
 flowchart LR
-    A[Raw videos] --> B[Probe metadata]
-    B --> C[Sample frames]
-    C --> D[Quality filters]
-    C --> E[Motion analysis]
-    C --> F[VLM captioning]
-    D --> G[Manifest]
-    E --> G
-    F --> G
-    G --> H[Dashboard]
-    G --> I[Training / eval jobs]
+    A[Raw videos] --> B[Scene splitting]
+    B --> C[Normalized clips]
+    C --> D[Probe metadata]
+    D --> E[Sample frames]
+    E --> F[Quality filters]
+    E --> G[Motion analysis]
+    E --> H[VLM captioning]
+    F --> I[Manifest]
+    G --> I
+    H --> I
+    I --> J[Dashboard]
+    I --> K[Training / eval jobs]
 ```
 
 ## Features
 
+- PySceneDetect scene splitting for raw long videos.
+- ffmpeg normalization to fixed FPS and resolution.
 - Video metadata probing via OpenCV.
 - Frame sampling for lightweight inspection.
 - Blur, brightness, resolution, duration, and text-area quality gates.
 - Optical-flow motion statistics.
 - JSONL manifest export with keep/reject reasons.
-- CLI commands for processing one clip or a folder.
+- CLI commands for splitting scenes, processing one clip, or processing a folder.
 - Optional Ray adapter for parallel execution.
 - Clean extension points for VLM captioning and inference benchmarking.
 
@@ -63,7 +68,15 @@ flowchart LR
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
-pip install -e .[dev]
+pip install -e .[dev,scene]
+```
+
+You also need `ffmpeg` available on PATH for scene export.
+
+Split a raw video into normalized scene clips:
+
+```bash
+vdf split-scenes data/raw/example.mp4 --output-dir data/clips
 ```
 
 Process one video:
@@ -75,7 +88,7 @@ vdf process-video path/to/video.mp4 --output outputs/manifest.jsonl
 Process a folder:
 
 ```bash
-vdf process-folder data/raw --output outputs/manifest.jsonl
+vdf process-folder data/clips --output outputs/manifest.jsonl
 ```
 
 Run tests:
@@ -122,18 +135,17 @@ This section is intentionally part of the project. Research engineering is not j
 
 Planned entries:
 
+- Scene threshold too low over-splits videos with camera shake.
 - OCR threshold too strict and rejects useful videos with small signs.
 - Motion threshold too high and removes slow cinematic shots.
 - Aggressive inference optimization trades smoothness for speed.
 
 ## Roadmap
 
-- Add PySceneDetect-based scene splitting.
-- Add ffmpeg clip normalization helper.
 - Add Qwen2-VL / LLaVA caption adapter.
 - Add CLIP aesthetic scoring adapter.
 - Add Ray distributed processing implementation.
-- Add Streamlit dashboard.
+- Expand Streamlit dashboard with clip review galleries.
 - Add inference optimization benchmark for a small diffusion/video model.
 
 ## License

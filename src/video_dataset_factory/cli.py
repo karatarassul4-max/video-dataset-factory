@@ -9,6 +9,7 @@ from rich.table import Table
 from video_dataset_factory.config import load_config
 from video_dataset_factory.manifest import append_jsonl
 from video_dataset_factory.pipeline import process_video
+from video_dataset_factory.scene_split import split_video_into_scenes
 from video_dataset_factory.video_io import is_video_file
 
 app = typer.Typer(help="Build filtered, captioned video dataset manifests.")
@@ -57,6 +58,21 @@ def process_folder_command(
     _print_records(records)
 
 
+@app.command("split-scenes")
+def split_scenes_command(
+    video: Path = typer.Argument(..., exists=True, readable=True),
+    config_path: Path | None = typer.Option(None, "--config", "-c", exists=True, readable=True),
+    output_dir: Path | None = typer.Option(None, "--output-dir", "-o"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Detect scenes but do not run ffmpeg."),
+) -> None:
+    config = load_config(config_path)
+    if output_dir is not None:
+        config.scene_split.output_dir = output_dir
+
+    segments = split_video_into_scenes(video, config.scene_split, dry_run=dry_run)
+    _print_segments(segments)
+
+
 def _print_records(records) -> None:
     table = Table(title="Video Dataset Factory")
     table.add_column("clip_id")
@@ -72,6 +88,26 @@ def _print_records(records) -> None:
             f"{record.duration_sec:.2f}s",
             "n/a" if record.motion_score is None else f"{record.motion_score:.2f}",
             ", ".join(record.reject_reasons) or "-",
+        )
+
+    console.print(table)
+
+
+def _print_segments(segments) -> None:
+    table = Table(title="Detected Scenes")
+    table.add_column("scene")
+    table.add_column("start")
+    table.add_column("end")
+    table.add_column("duration")
+    table.add_column("clip_path")
+
+    for segment in segments:
+        table.add_row(
+            str(segment.scene_index),
+            f"{segment.start_sec:.2f}s",
+            f"{segment.end_sec:.2f}s",
+            f"{segment.duration_sec:.2f}s",
+            segment.clip_path,
         )
 
     console.print(table)

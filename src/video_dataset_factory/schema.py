@@ -33,9 +33,22 @@ class PipelineConfig(BaseModel):
     output_manifest: Path = Path("outputs/manifest.jsonl")
 
 
+class SceneSplitConfig(BaseModel):
+    detector: str = "content"
+    threshold: float = 27.0
+    min_scene_len_frames: int = 15
+    output_dir: Path = Path("data/clips")
+    output_fps: int = 24
+    output_width: int = 512
+    output_height: int = 512
+    crf: int = 18
+    preset: str = "medium"
+
+
 class AppConfig(BaseModel):
     pipeline: PipelineConfig = Field(default_factory=PipelineConfig)
     quality: QualityConfig = Field(default_factory=QualityConfig)
+    scene_split: SceneSplitConfig = Field(default_factory=SceneSplitConfig)
     captioning: dict[str, Any] = Field(default_factory=dict)
     ray: dict[str, Any] = Field(default_factory=dict)
 
@@ -57,3 +70,12 @@ class ClipRecord(BaseModel):
     motion_caption: str | None = None
     keep: bool
     reject_reasons: list[str] = Field(default_factory=list)
+
+
+class SceneSegment(BaseModel):
+    source_path: str
+    clip_path: str
+    scene_index: int
+    start_sec: float
+    end_sec: float
+    duration_sec: float

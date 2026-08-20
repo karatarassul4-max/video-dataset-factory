@@ -27,6 +27,7 @@ dev = [
 ray = ["ray>=2.9"]
 dashboard = ["streamlit>=1.36", "pandas>=2.0"]
 captioning = ["pillow>=10.0"]
+scene = ["scenedetect>=0.6.4"]
 
 [project.scripts]
 vdf = "video_dataset_factory.cli:app"
