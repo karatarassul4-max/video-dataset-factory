@@ -17,6 +17,7 @@ from video_dataset_factory.config import load_config
 from video_dataset_factory.duplicates import find_duplicate_pairs, mark_duplicates
 from video_dataset_factory.manifest import append_jsonl, read_jsonl, write_jsonl
 from video_dataset_factory.pipeline import process_video
+from video_dataset_factory.reporting import summarize_manifest, write_markdown_summary
 from video_dataset_factory.scene_split import split_video_into_scenes
 from video_dataset_factory.video_io import is_video_file
 
@@ -92,6 +93,16 @@ def dedupe_manifest_command(
     deduped = mark_duplicates(records, threshold=threshold)
     write_jsonl(output, deduped)
     _print_dedupe_summary(len(records), pairs, output)
+
+
+@app.command("summarize-manifest")
+def summarize_manifest_command(
+    manifest: Path = typer.Argument(..., exists=True, readable=True),
+    output: Path = typer.Option(Path("outputs/dataset_summary.md"), "--output", "-o"),
+) -> None:
+    summary = summarize_manifest(read_jsonl(manifest))
+    write_markdown_summary(output, summary)
+    _print_manifest_summary(summary, output)
 
 
 @app.command("benchmark-folder")
@@ -173,6 +184,23 @@ def _print_dedupe_summary(total_records, pairs, output: Path) -> None:
     table.add_column("duplicates")
     table.add_column("output")
     table.add_row(str(total_records), str(len(pairs)), str(output))
+    console.print(table)
+
+
+def _print_manifest_summary(summary, output: Path) -> None:
+    table = Table(title="Dataset Summary")
+    table.add_column("total")
+    table.add_column("accepted")
+    table.add_column("rejected")
+    table.add_column("duplicates")
+    table.add_column("output")
+    table.add_row(
+        str(summary.total_clips),
+        str(summary.accepted_clips),
+        str(summary.rejected_clips),
+        str(summary.duplicate_clips),
+        str(output),
+    )
     console.print(table)
 
 
