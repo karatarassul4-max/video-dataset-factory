@@ -98,8 +98,7 @@ flowchart LR
 - Aesthetic scoring via CPU heuristic or optional CLIP preference proxy.
 - Perceptual hashes and manifest-level near-duplicate rejection.
 - Markdown dataset summary reports for portfolio-ready experiment writeups.
-- JSONL manifest export with keep/reject reasons.
-- Streamlit dashboard with demo manifest mode, upload processing, filters, score charts, clip review, and JSONL/CSV/Markdown exports.
+- Streamlit dashboard with small upload processing, manifest upload for large runs, filters, score charts, clip review, and JSONL/CSV/Markdown exports.
 - CLI commands for splitting scenes, processing one clip, processing a folder, deduplicating manifests, summarizing manifests, benchmarking preprocessing throughput, and benchmarking inference settings.
 - Ray adapter and benchmark mode for comparing distributed preprocessing throughput.
 - Inference benchmark harness for latency/VRAM trade-offs across steps, slicing, dtype, and compile settings.
@@ -158,7 +157,7 @@ Deploy on Streamlit Community Cloud:
 | Branch | `main` |
 | Main file path | `dashboards/app.py` |
 
-The public app can load the demo manifest or process short uploaded videos in a temporary session. See [docs/STREAMLIT_DEPLOY.md](docs/STREAMLIT_DEPLOY.md) for details.
+The public app can process up to 10 short uploaded videos in a temporary session. For 50+ clips, run the CLI locally or on a worker, then upload the generated `manifest.jsonl` in the app's `upload manifest JSONL` mode. See [docs/STREAMLIT_DEPLOY.md](docs/STREAMLIT_DEPLOY.md) for details.
 
 Benchmark preprocessing throughput:
 
