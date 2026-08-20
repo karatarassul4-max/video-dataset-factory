@@ -27,7 +27,8 @@ Current status:
 | CLI pipeline | Done |
 | Single-process/Ray throughput benchmark | Done |
 | Ray execution adapter | Done |
-| Dataset review dashboard | Done |
+| Streamlit upload/review dashboard | Done |
+| Streamlit Cloud deployment config | Done |
 | Inference optimization benchmark | Done |
 | Transformers VLM backend | Experimental |
 
@@ -53,6 +54,7 @@ Target headline once experiments are complete:
 
 - [Role alignment](docs/HIGGSFIELD_ALIGNMENT.md): how this project maps to video generative AI research engineering work.
 - [Experiment runbook](docs/RUNBOOK.md): end-to-end commands for producing a real dataset report.
+- [Streamlit deployment](docs/STREAMLIT_DEPLOY.md): public app deployment settings and limits.
 - [Experiment log](docs/EXPERIMENT_LOG.md): hypotheses, risks, and failed-experiment tracking.
 - [Demo dataset summary](examples/demo_summary.md): synthetic fixture report format.
 - [Inference dry-run report](examples/inference_dry_run_report.md): CI-friendly latency/VRAM trade-off example.
@@ -97,7 +99,7 @@ flowchart LR
 - Perceptual hashes and manifest-level near-duplicate rejection.
 - Markdown dataset summary reports for portfolio-ready experiment writeups.
 - JSONL manifest export with keep/reject reasons.
-- Streamlit review dashboard with filters, score charts, reject reason charts, clip preview, and CSV export.
+- Streamlit dashboard with demo manifest mode, upload processing, filters, score charts, clip review, and JSONL/CSV/Markdown exports.
 - CLI commands for splitting scenes, processing one clip, processing a folder, deduplicating manifests, summarizing manifests, benchmarking preprocessing throughput, and benchmarking inference settings.
 - Ray adapter and benchmark mode for comparing distributed preprocessing throughput.
 - Inference benchmark harness for latency/VRAM trade-offs across steps, slicing, dtype, and compile settings.
@@ -147,6 +149,16 @@ Open the dataset review dashboard:
 ```bash
 streamlit run dashboards/app.py
 ```
+
+Deploy on Streamlit Community Cloud:
+
+| Field | Value |
+| --- | --- |
+| Repository | `karatarassul4-max/video-dataset-factory` |
+| Branch | `main` |
+| Main file path | `dashboards/app.py` |
+
+The public app can load the demo manifest or process short uploaded videos in a temporary session. See [docs/STREAMLIT_DEPLOY.md](docs/STREAMLIT_DEPLOY.md) for details.
 
 Benchmark preprocessing throughput:
 
