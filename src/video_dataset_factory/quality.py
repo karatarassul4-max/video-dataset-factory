@@ -144,10 +144,10 @@ class CLIPAestheticScorer:
         self.torch = torch
         self.image_cls = Image
         self.processor = CLIPProcessor.from_pretrained(model_name)
-        self.model = CLIPModel.from_pretrained(model_name)
         self.device = "cuda" if device == "auto" and torch.cuda.is_available() else device
-        if self.device != "auto":
-            self.model = self.model.to(self.device)
+        if self.device == "auto":
+            self.device = "cpu"
+        self.model = CLIPModel.from_pretrained(model_name).to(self.device)
         self.max_frames = max_frames
 
     def score(self, frames: list[np.ndarray]) -> float | None:
@@ -161,7 +161,7 @@ class CLIPAestheticScorer:
             "a low quality blurry image with bad composition or watermark artifacts",
         ]
         inputs = self.processor(text=prompts, images=images, padding=True, return_tensors="pt")
-        inputs = {key: value.to(self.model.device) for key, value in inputs.items()}
+        inputs = {key: value.to(self.device) for key, value in inputs.items()}
 
         with self.torch.no_grad():
             logits = self.model(**inputs).logits_per_image
