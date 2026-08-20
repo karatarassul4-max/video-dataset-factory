@@ -16,7 +16,15 @@ def test_dashboard_has_review_controls():
 def test_dashboard_has_upload_demo_controls():
     content = Path("dashboards/app.py").read_text(encoding="utf-8")
 
-    assert "Upload short video clips" in content
+    assert "Upload up to 10 short video clips" in content
     assert "Process uploaded videos" in content
     assert "Download manifest JSONL" in content
-    assert "demo manifest" in content
+    assert "use demo data" in content
+
+
+def test_dashboard_has_large_run_manifest_path():
+    content = Path("dashboards/app.py").read_text(encoding="utf-8")
+
+    assert "upload manifest JSONL" in content
+    assert "For 50+ clips" in content
+    assert "MAX_UPLOAD_FILES = 10" in content
