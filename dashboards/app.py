@@ -23,6 +23,9 @@ SCORE_COLUMNS = [
 ]
 VIDEO_TYPES = ["mp4", "mov", "mkv", "avi", "webm"]
 DEMO_MANIFEST_PATH = Path("examples/demo_manifest.jsonl")
+MAX_UPLOAD_FILES = 10
+MAX_TOTAL_UPLOAD_MB = 250
+MAX_SINGLE_UPLOAD_MB = 50
 
 
 def normalize_records(records: pd.DataFrame) -> pd.DataFrame:
@@ -71,8 +74,12 @@ def apply_filters(records: pd.DataFrame) -> pd.DataFrame:
 
 
 def render_upload_mode() -> list[ClipRecord] | None:
+    st.info(
+        "Online upload is for a small demo run. For 50+ clips, process videos locally "
+        "with the CLI and upload the generated manifest JSONL."
+    )
     uploaded_files = st.file_uploader(
-        "Upload short video clips",
+        "Upload up to 10 short video clips",
         type=VIDEO_TYPES,
         accept_multiple_files=True,
     )
@@ -80,15 +87,55 @@ def render_upload_mode() -> list[ClipRecord] | None:
     sample_frames = st.slider("Frames sampled per clip", 4, 16, 8, step=2)
 
     if not uploaded_files:
-        st.info("Upload one or more short clips to build a temporary manifest.")
+        st.info("Upload clips to build a temporary manifest, or switch to demo data.")
+        return st.session_state.get("uploaded_records")
+
+    upload_error = validate_video_uploads(uploaded_files)
+    if upload_error:
+        st.error(upload_error)
         return st.session_state.get("uploaded_records")
 
     if st.button("Process uploaded videos", type="primary"):
-        records = process_uploaded_files(uploaded_files, sample_frames=sample_frames, threshold=threshold)
+        with st.spinner("Processing uploaded videos..."):
+            records = process_uploaded_files(uploaded_files, sample_frames=sample_frames, threshold=threshold)
         st.session_state["uploaded_records"] = records
         st.success(f"Processed {len(records)} uploaded clip(s).")
 
     return st.session_state.get("uploaded_records")
+
+
+def validate_video_uploads(uploaded_files) -> str | None:
+    if len(uploaded_files) > MAX_UPLOAD_FILES:
+        return (
+            f"This public demo accepts up to {MAX_UPLOAD_FILES} videos at once. "
+            "For 50+ videos, run the CLI locally and upload the manifest JSONL."
+        )
+
+    sizes = [getattr(uploaded_file, "size", 0) or 0 for uploaded_file in uploaded_files]
+    max_size_mb = max(sizes, default=0) / 1024**2
+    total_size_mb = sum(sizes) / 1024**2
+    if max_size_mb > MAX_SINGLE_UPLOAD_MB:
+        return f"One file is {max_size_mb:.1f} MB. Keep each demo upload under 50 MB."
+    if total_size_mb > MAX_TOTAL_UPLOAD_MB:
+        return f"Total upload is {total_size_mb:.1f} MB. Keep one demo run under 250 MB."
+    return None
+
+
+def render_manifest_upload_mode() -> list[ClipRecord] | None:
+    st.info("Use this for large runs: upload a JSONL manifest produced by the CLI.")
+    uploaded_manifest = st.file_uploader("Upload manifest JSONL", type=["jsonl", "json"])
+    if uploaded_manifest is None:
+        return None
+
+    try:
+        text = uploaded_manifest.getvalue().decode("utf-8")
+        records = [ClipRecord.model_validate_json(line) for line in text.splitlines() if line.strip()]
+    except Exception as exc:  # noqa: BLE001
+        st.error(f"Could not read manifest: {exc}")
+        return None
+
+    st.success(f"Loaded {len(records)} manifest row(s).")
+    return records
 
 
 def process_uploaded_files(uploaded_files, sample_frames: int, threshold: int) -> list[ClipRecord]:
@@ -270,23 +317,20 @@ def render_manifest_table(records: pd.DataFrame) -> None:
 def main() -> None:
     st.set_page_config(page_title="Video Dataset Factory", layout="wide")
     st.title("Video Dataset Factory")
-    st.caption("Inspect demo manifests or upload short clips for a temporary quality report.")
+    st.caption("Upload short clips for a temporary quality report, or inspect existing manifests.")
 
-    mode = st.sidebar.radio("Input", ["demo manifest", "upload videos", "manifest path"])
+    mode = st.sidebar.radio("Input", ["upload videos", "upload manifest JSONL", "use demo data"])
 
-    if mode == "demo manifest":
-        records = load_demo_records()
-    elif mode == "upload videos":
+    if mode == "upload videos":
         records = render_upload_mode()
         if not records:
             st.stop()
-    else:
-        manifest_path = st.sidebar.text_input("Manifest path", "outputs/manifest.jsonl")
-        path = Path(manifest_path)
-        if not path.exists():
-            st.info("Run `vdf process-folder data/clips --output outputs/manifest.jsonl` first.")
+    elif mode == "upload manifest JSONL":
+        records = render_manifest_upload_mode()
+        if not records:
             st.stop()
-        records = load_records_from_jsonl(path)
+    else:
+        records = load_demo_records()
 
     frame = normalize_records(records_to_dataframe(records))
     if frame.empty:
