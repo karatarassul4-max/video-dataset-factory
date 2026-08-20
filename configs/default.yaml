@@ -13,6 +13,7 @@ quality:
   max_ocr_text_area_ratio: 0.08
   min_motion_score: 0.2
   max_motion_score: 50.0
+  min_aesthetic_score: null
 
 scene_split:
   detector: content
@@ -34,6 +35,12 @@ captioning:
   max_new_tokens: 160
   cache_path: outputs/caption_cache.json
   prompt_style: dense_video
+
+aesthetic:
+  provider: none
+  model_name: openai/clip-vit-base-patch32
+  device: auto
+  max_frames: 4
 
 ray:
   enabled: false
