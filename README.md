@@ -22,6 +22,7 @@ Current status:
 | Batched caption generation interface | Done |
 | CLIP-style aesthetic scoring adapter | Done |
 | Perceptual duplicate detection | Done |
+| Manifest summary reporting | Done |
 | JSONL manifest writer | Done |
 | CLI pipeline | Done |
 | Single-process/Ray throughput benchmark | Done |
@@ -29,6 +30,20 @@ Current status:
 | Dataset review dashboard | Done |
 | Inference optimization benchmark | Done |
 | Transformers VLM backend | Experimental |
+
+Demo fixture results from `examples/demo_manifest.jsonl`:
+
+| Metric | Value |
+| --- | ---: |
+| Total clips | 6 |
+| Accepted clips | 3 |
+| Rejected clips | 3 |
+| Acceptance rate | 50.0% |
+| Near-duplicate clips | 1 |
+| Average aesthetic score | 6.95 |
+| Average motion score | 2.36 |
+
+These are synthetic smoke-test artifacts, not benchmark claims. For a real application, replace them with results from your own clips and keep the generated report in `examples/` or a release artifact.
 
 Target headline once experiments are complete:
 
@@ -72,9 +87,10 @@ flowchart LR
 - Captioning interface with heuristic fallback, JSON cache, keyframe selection, Qwen2-VL/LLaVA prompt formatting, batched caption generation, and optional Transformers VLM backend.
 - Aesthetic scoring via CPU heuristic or optional CLIP preference proxy.
 - Perceptual hashes and manifest-level near-duplicate rejection.
+- Markdown dataset summary reports for portfolio-ready experiment writeups.
 - JSONL manifest export with keep/reject reasons.
 - Streamlit review dashboard with filters, score charts, reject reason charts, clip preview, and CSV export.
-- CLI commands for splitting scenes, processing one clip, processing a folder, deduplicating manifests, benchmarking preprocessing throughput, and benchmarking inference settings.
+- CLI commands for splitting scenes, processing one clip, processing a folder, deduplicating manifests, summarizing manifests, benchmarking preprocessing throughput, and benchmarking inference settings.
 - Ray adapter and benchmark mode for comparing distributed preprocessing throughput.
 - Inference benchmark harness for latency/VRAM trade-offs across steps, slicing, dtype, and compile settings.
 
@@ -110,6 +126,12 @@ Remove near-duplicates from a manifest:
 
 ```bash
 vdf dedupe-manifest outputs/manifest.jsonl --output outputs/manifest_deduped.jsonl --threshold 6
+```
+
+Generate a markdown dataset summary:
+
+```bash
+vdf summarize-manifest outputs/manifest_deduped.jsonl --output outputs/dataset_summary.md
 ```
 
 Open the dataset review dashboard:
@@ -233,7 +255,7 @@ Planned entries:
 ## Roadmap
 
 - Replace CLIP preference proxy with LAION aesthetic linear head.
-- Add small reproducible demo artifact set.
+- Run the pipeline on 50-100 real Creative Commons clips and commit the result report.
 
 ## License
 
