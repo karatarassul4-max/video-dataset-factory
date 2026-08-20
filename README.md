@@ -22,9 +22,9 @@ Current status:
 | CLI pipeline | Done |
 | Single-process/Ray throughput benchmark | Done |
 | Ray execution adapter | Done |
+| Dataset review dashboard | Done |
 | Transformers VLM backend | Experimental |
 | Inference optimization benchmark | Stubbed |
-| Dashboard | Stubbed |
 
 Target headline once experiments are complete:
 
@@ -62,6 +62,7 @@ flowchart LR
 - Optical-flow motion statistics.
 - Captioning interface with heuristic fallback, JSON cache, and optional Transformers VLM backend.
 - JSONL manifest export with keep/reject reasons.
+- Streamlit review dashboard with filters, score charts, reject reason charts, clip preview, and CSV export.
 - CLI commands for splitting scenes, processing one clip, processing a folder, and benchmarking throughput.
 - Ray adapter and benchmark mode for comparing distributed preprocessing throughput.
 - Clean extension points for VLM captioning and inference benchmarking.
@@ -71,7 +72,7 @@ flowchart LR
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
-pip install -e .[dev,scene]
+pip install -e .[dev,scene,dashboard]
 ```
 
 You also need `ffmpeg` available on PATH for scene export.
@@ -92,6 +93,12 @@ Process a folder:
 
 ```bash
 vdf process-folder data/clips --output outputs/manifest.jsonl
+```
+
+Open the dataset review dashboard:
+
+```bash
+streamlit run dashboards/app.py
 ```
 
 Benchmark preprocessing throughput:
@@ -165,7 +172,6 @@ Planned entries:
 
 - Add model-specific Qwen2-VL / LLaVA chat-template adapters.
 - Add CLIP aesthetic scoring adapter.
-- Expand Streamlit dashboard with clip review galleries.
 - Add inference optimization benchmark for a small diffusion/video model.
 
 ## License
