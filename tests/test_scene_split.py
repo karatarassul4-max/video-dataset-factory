@@ -14,11 +14,12 @@ def test_build_ffmpeg_clip_command_contains_normalization_settings():
         end_sec=3.5,
         config=config,
     )
+    vf = command[command.index("-vf") + 1]
 
     assert command[:4] == ["ffmpeg", "-y", "-ss", "1.000"]
     assert "-t" in command
     assert "2.500" in command
-    assert "fps=12" in command
-    assert "scale=320:240" in command
+    assert "fps=12" in vf
+    assert "scale=320:240" in vf
     assert "-crf" in command
     assert "20" in command
