@@ -4,6 +4,7 @@ import hashlib
 from pathlib import Path
 
 from video_dataset_factory.caption import CaptionContext, Captioner, build_captioner
+from video_dataset_factory.duplicates import clip_perceptual_hash
 from video_dataset_factory.motion import motion_caption, motion_reject_reasons, motion_score
 from video_dataset_factory.quality import (
     aggregate_quality,
@@ -48,6 +49,7 @@ def process_video(path: Path, config: AppConfig, captioner: Captioner | None = N
         motion_score=motion,
         ocr_text_area_ratio=quality["ocr_text_area_ratio"],
         aesthetic_score=quality["aesthetic_score"],
+        perceptual_hash=clip_perceptual_hash(frames),
         caption=captioner.caption(frames, context),
         motion_caption=motion_text,
         keep=not reasons,
