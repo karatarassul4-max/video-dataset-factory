@@ -68,6 +68,8 @@ class ClipRecord(BaseModel):
     motion_score: float | None = None
     ocr_text_area_ratio: float | None = None
     aesthetic_score: float | None = None
+    perceptual_hash: str | None = None
+    duplicate_of: str | None = None
     caption: str | None = None
     motion_caption: str | None = None
     keep: bool
