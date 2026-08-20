@@ -6,7 +6,7 @@ This project is designed as a portfolio-grade ML Engineer (Research) project for
 
 ## Research Goal & Current Results
 
-**Goal:** build a reproducible video data pipeline that ingests raw clips, splits or normalizes them, extracts quality and motion signals, generates captions, filters bad samples, and exports a training-ready manifest.
+**Goal:** build a reproducible video data pipeline that ingests raw clips, splits or normalizes them, extracts quality and motion signals, generates captions, filters bad samples, removes near-duplicates, and exports a training-ready manifest.
 
 Current status:
 
@@ -21,6 +21,7 @@ Current status:
 | Qwen/LLaVA dense-caption prompt adapter | Done |
 | Batched caption generation interface | Done |
 | CLIP-style aesthetic scoring adapter | Done |
+| Perceptual duplicate detection | Done |
 | JSONL manifest writer | Done |
 | CLI pipeline | Done |
 | Single-process/Ray throughput benchmark | Done |
@@ -49,12 +50,15 @@ flowchart LR
     E --> G[Motion analysis]
     E --> H[VLM captioning]
     E --> L[Aesthetic scoring]
+    E --> M[Perceptual hashing]
     F --> I[Manifest]
     G --> I
     H --> I
     L --> I
-    I --> J[Dashboard]
-    I --> K[Training / eval jobs]
+    M --> N[Dedupe manifest]
+    I --> N
+    N --> J[Dashboard]
+    N --> K[Training / eval jobs]
 ```
 
 ## Features
@@ -67,9 +71,10 @@ flowchart LR
 - Optical-flow motion statistics.
 - Captioning interface with heuristic fallback, JSON cache, keyframe selection, Qwen2-VL/LLaVA prompt formatting, batched caption generation, and optional Transformers VLM backend.
 - Aesthetic scoring via CPU heuristic or optional CLIP preference proxy.
+- Perceptual hashes and manifest-level near-duplicate rejection.
 - JSONL manifest export with keep/reject reasons.
 - Streamlit review dashboard with filters, score charts, reject reason charts, clip preview, and CSV export.
-- CLI commands for splitting scenes, processing one clip, processing a folder, benchmarking preprocessing throughput, and benchmarking inference settings.
+- CLI commands for splitting scenes, processing one clip, processing a folder, deduplicating manifests, benchmarking preprocessing throughput, and benchmarking inference settings.
 - Ray adapter and benchmark mode for comparing distributed preprocessing throughput.
 - Inference benchmark harness for latency/VRAM trade-offs across steps, slicing, dtype, and compile settings.
 
@@ -99,6 +104,12 @@ Process a folder:
 
 ```bash
 vdf process-folder data/clips --output outputs/manifest.jsonl
+```
+
+Remove near-duplicates from a manifest:
+
+```bash
+vdf dedupe-manifest outputs/manifest.jsonl --output outputs/manifest_deduped.jsonl --threshold 6
 ```
 
 Open the dataset review dashboard:
@@ -185,6 +196,8 @@ Each output row contains:
 - `motion_score`
 - `ocr_text_area_ratio`
 - `aesthetic_score`
+- `perceptual_hash`
+- `duplicate_of`
 - `caption`
 - `motion_caption`
 - `keep`
@@ -197,6 +210,7 @@ The project will report:
 - dataset yield: accepted vs rejected clips;
 - reject precision: manual inspection of rejected samples;
 - caption usefulness: small manual rubric over 30 clips;
+- duplicate rate: near-duplicate groups found by pHash threshold;
 - throughput: clips per minute, single process vs Ray;
 - cost estimate: CPU/GPU minutes per 1,000 clips;
 - inference benchmark: latency, peak VRAM, and quality proxy for selected model settings.
@@ -214,11 +228,12 @@ Planned entries:
 - Ray overhead can dominate throughput on tiny clip folders.
 - Aggressive inference optimization trades smoothness for speed.
 - CLIP aesthetic prompts can prefer glossy images over dataset diversity.
+- pHash threshold above 8 starts grouping visually different clips with similar composition.
 
 ## Roadmap
 
 - Replace CLIP preference proxy with LAION aesthetic linear head.
-- Add duplicate detection with perceptual hashes.
+- Add small reproducible demo artifact set.
 
 ## License
 
