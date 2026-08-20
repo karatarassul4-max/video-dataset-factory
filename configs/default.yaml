@@ -28,6 +28,8 @@ scene_split:
 captioning:
   provider: heuristic
   model_name: null
+  cache_path: outputs/caption_cache.json
+  prompt_style: dense_video
 
 ray:
   enabled: false

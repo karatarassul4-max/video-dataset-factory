@@ -17,10 +17,11 @@ Current status:
 | Clip metadata schema | Done |
 | Quality filters | Done |
 | Motion feature extraction | Done |
+| Captioning interface + cache | Done |
 | JSONL manifest writer | Done |
 | CLI pipeline | Done |
 | Ray execution adapter | Stubbed |
-| VLM captioning adapter | Stubbed |
+| Transformers VLM backend | Experimental |
 | Inference optimization benchmark | Stubbed |
 | Dashboard | Stubbed |
 
@@ -58,6 +59,7 @@ flowchart LR
 - Frame sampling for lightweight inspection.
 - Blur, brightness, resolution, duration, and text-area quality gates.
 - Optical-flow motion statistics.
+- Captioning interface with heuristic fallback, JSON cache, and optional Transformers VLM backend.
 - JSONL manifest export with keep/reject reasons.
 - CLI commands for splitting scenes, processing one clip, or processing a folder.
 - Optional Ray adapter for parallel execution.
@@ -89,6 +91,15 @@ Process a folder:
 
 ```bash
 vdf process-folder data/clips --output outputs/manifest.jsonl
+```
+
+Run with an optional Hugging Face VLM backend by changing `configs/default.yaml`:
+
+```yaml
+captioning:
+  provider: transformers
+  model_name: your-vlm-model
+  cache_path: outputs/caption_cache.json
 ```
 
 Run tests:
@@ -138,11 +149,12 @@ Planned entries:
 - Scene threshold too low over-splits videos with camera shake.
 - OCR threshold too strict and rejects useful videos with small signs.
 - Motion threshold too high and removes slow cinematic shots.
+- Generic VLM prompts produce object lists but miss temporal dynamics.
 - Aggressive inference optimization trades smoothness for speed.
 
 ## Roadmap
 
-- Add Qwen2-VL / LLaVA caption adapter.
+- Add model-specific Qwen2-VL / LLaVA chat-template adapters.
 - Add CLIP aesthetic scoring adapter.
 - Add Ray distributed processing implementation.
 - Expand Streamlit dashboard with clip review galleries.
