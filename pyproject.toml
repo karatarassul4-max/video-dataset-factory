@@ -31,6 +31,12 @@ captioning = [
     "torch>=2.1",
     "transformers>=4.44",
 ]
+inference = [
+    "torch>=2.1",
+    "diffusers>=0.30",
+    "transformers>=4.44",
+    "accelerate>=0.33",
+]
 scene = ["scenedetect>=0.6.4"]
 
 [project.scripts]

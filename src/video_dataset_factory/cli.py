@@ -6,6 +6,12 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from video_dataset_factory.benchmark_inference import (
+    run_diffusers_text_to_image_benchmark,
+    run_dry_inference_benchmark,
+    write_json_report,
+    write_markdown_report,
+)
 from video_dataset_factory.benchmark_pipeline import run_pipeline_benchmark, write_benchmark_report
 from video_dataset_factory.config import load_config
 from video_dataset_factory.manifest import append_jsonl
@@ -87,6 +93,26 @@ def benchmark_folder_command(
     _print_benchmark(results)
 
 
+@app.command("benchmark-inference")
+def benchmark_inference_command(
+    output: Path = typer.Option(Path("outputs/inference_benchmark.json"), "--output", "-o"),
+    markdown_output: Path = typer.Option(
+        Path("outputs/inference_benchmark.md"), "--markdown-output"
+    ),
+    dry_run: bool = typer.Option(True, "--dry-run/--real", help="Use estimates instead of model execution."),
+    model_name: str = typer.Option("runwayml/stable-diffusion-v1-5", "--model"),
+    prompt: str = typer.Option("a cinematic shot of a car driving through rain", "--prompt"),
+) -> None:
+    if dry_run:
+        results = run_dry_inference_benchmark()
+    else:
+        results = run_diffusers_text_to_image_benchmark(model_name=model_name, prompt=prompt)
+
+    write_json_report(output, results)
+    write_markdown_report(markdown_output, results)
+    _print_inference_benchmark(results)
+
+
 def _print_records(records) -> None:
     table = Table(title="Video Dataset Factory")
     table.add_column("clip_id")
@@ -145,6 +171,20 @@ def _print_benchmark(results) -> None:
             f"{result.seconds:.2f}",
             f"{result.clips_per_minute:.2f}",
         )
+
+    console.print(table)
+
+
+def _print_inference_benchmark(results) -> None:
+    table = Table(title="Inference Benchmark")
+    table.add_column("scenario")
+    table.add_column("seconds")
+    table.add_column("peak VRAM MB")
+    table.add_column("notes")
+
+    for result in results:
+        peak_vram = "n/a" if result.peak_vram_mb is None else f"{result.peak_vram_mb:.2f}"
+        table.add_row(result.name, f"{result.seconds:.4f}", peak_vram, result.notes)
 
     console.print(table)
 

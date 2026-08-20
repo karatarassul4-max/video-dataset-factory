@@ -23,8 +23,8 @@ Current status:
 | Single-process/Ray throughput benchmark | Done |
 | Ray execution adapter | Done |
 | Dataset review dashboard | Done |
+| Inference optimization benchmark | Done |
 | Transformers VLM backend | Experimental |
-| Inference optimization benchmark | Stubbed |
 
 Target headline once experiments are complete:
 
@@ -63,9 +63,9 @@ flowchart LR
 - Captioning interface with heuristic fallback, JSON cache, and optional Transformers VLM backend.
 - JSONL manifest export with keep/reject reasons.
 - Streamlit review dashboard with filters, score charts, reject reason charts, clip preview, and CSV export.
-- CLI commands for splitting scenes, processing one clip, processing a folder, and benchmarking throughput.
+- CLI commands for splitting scenes, processing one clip, processing a folder, benchmarking preprocessing throughput, and benchmarking inference settings.
 - Ray adapter and benchmark mode for comparing distributed preprocessing throughput.
-- Clean extension points for VLM captioning and inference benchmarking.
+- Inference benchmark harness for latency/VRAM trade-offs across steps, slicing, dtype, and compile settings.
 
 ## Quickstart
 
@@ -106,6 +106,19 @@ Benchmark preprocessing throughput:
 ```bash
 vdf benchmark-folder data/clips --output outputs/pipeline_benchmark.json
 vdf benchmark-folder data/clips --ray --output outputs/pipeline_benchmark_ray.json
+```
+
+Benchmark inference trade-offs without heavyweight model execution:
+
+```bash
+vdf benchmark-inference --dry-run
+```
+
+Run a real CUDA diffusers benchmark:
+
+```bash
+pip install -e .[inference]
+vdf benchmark-inference --real --model runwayml/stable-diffusion-v1-5
 ```
 
 Run with an optional Hugging Face VLM backend by changing `configs/default.yaml`:
@@ -172,7 +185,6 @@ Planned entries:
 
 - Add model-specific Qwen2-VL / LLaVA chat-template adapters.
 - Add CLIP aesthetic scoring adapter.
-- Add inference optimization benchmark for a small diffusion/video model.
 
 ## License
 
