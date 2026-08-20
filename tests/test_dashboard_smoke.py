@@ -11,3 +11,12 @@ def test_dashboard_has_review_controls():
     assert "Reject reasons" in content
     assert "Clip Review" in content
     assert "Download filtered CSV" in content
+
+
+def test_dashboard_has_upload_demo_controls():
+    content = Path("dashboards/app.py").read_text(encoding="utf-8")
+
+    assert "Upload short video clips" in content
+    assert "Process uploaded videos" in content
+    assert "Download manifest JSONL" in content
+    assert "demo manifest" in content
