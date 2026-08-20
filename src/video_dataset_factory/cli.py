@@ -6,6 +6,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from video_dataset_factory.benchmark_pipeline import run_pipeline_benchmark, write_benchmark_report
 from video_dataset_factory.config import load_config
 from video_dataset_factory.manifest import append_jsonl
 from video_dataset_factory.pipeline import process_video
@@ -73,6 +74,19 @@ def split_scenes_command(
     _print_segments(segments)
 
 
+@app.command("benchmark-folder")
+def benchmark_folder_command(
+    folder: Path = typer.Argument(..., exists=True, file_okay=False, readable=True),
+    output: Path = typer.Option(Path("outputs/pipeline_benchmark.json"), "--output", "-o"),
+    config_path: Path | None = typer.Option(None, "--config", "-c", exists=True, readable=True),
+    include_ray: bool = typer.Option(False, "--ray", help="Also benchmark Ray execution."),
+) -> None:
+    config = load_config(config_path)
+    results = run_pipeline_benchmark(folder, config, include_ray=include_ray)
+    write_benchmark_report(output, results)
+    _print_benchmark(results)
+
+
 def _print_records(records) -> None:
     table = Table(title="Video Dataset Factory")
     table.add_column("clip_id")
@@ -108,6 +122,28 @@ def _print_segments(segments) -> None:
             f"{segment.end_sec:.2f}s",
             f"{segment.duration_sec:.2f}s",
             segment.clip_path,
+        )
+
+    console.print(table)
+
+
+def _print_benchmark(results) -> None:
+    table = Table(title="Pipeline Benchmark")
+    table.add_column("mode")
+    table.add_column("clips")
+    table.add_column("accepted")
+    table.add_column("rejected")
+    table.add_column("seconds")
+    table.add_column("clips/min")
+
+    for result in results:
+        table.add_row(
+            result.mode,
+            str(result.clip_count),
+            str(result.accepted_count),
+            str(result.rejected_count),
+            f"{result.seconds:.2f}",
+            f"{result.clips_per_minute:.2f}",
         )
 
     console.print(table)

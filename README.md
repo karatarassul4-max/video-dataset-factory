@@ -20,7 +20,8 @@ Current status:
 | Captioning interface + cache | Done |
 | JSONL manifest writer | Done |
 | CLI pipeline | Done |
-| Ray execution adapter | Stubbed |
+| Single-process/Ray throughput benchmark | Done |
+| Ray execution adapter | Done |
 | Transformers VLM backend | Experimental |
 | Inference optimization benchmark | Stubbed |
 | Dashboard | Stubbed |
@@ -61,8 +62,8 @@ flowchart LR
 - Optical-flow motion statistics.
 - Captioning interface with heuristic fallback, JSON cache, and optional Transformers VLM backend.
 - JSONL manifest export with keep/reject reasons.
-- CLI commands for splitting scenes, processing one clip, or processing a folder.
-- Optional Ray adapter for parallel execution.
+- CLI commands for splitting scenes, processing one clip, processing a folder, and benchmarking throughput.
+- Ray adapter and benchmark mode for comparing distributed preprocessing throughput.
 - Clean extension points for VLM captioning and inference benchmarking.
 
 ## Quickstart
@@ -91,6 +92,13 @@ Process a folder:
 
 ```bash
 vdf process-folder data/clips --output outputs/manifest.jsonl
+```
+
+Benchmark preprocessing throughput:
+
+```bash
+vdf benchmark-folder data/clips --output outputs/pipeline_benchmark.json
+vdf benchmark-folder data/clips --ray --output outputs/pipeline_benchmark_ray.json
 ```
 
 Run with an optional Hugging Face VLM backend by changing `configs/default.yaml`:
@@ -150,13 +158,13 @@ Planned entries:
 - OCR threshold too strict and rejects useful videos with small signs.
 - Motion threshold too high and removes slow cinematic shots.
 - Generic VLM prompts produce object lists but miss temporal dynamics.
+- Ray overhead can dominate throughput on tiny clip folders.
 - Aggressive inference optimization trades smoothness for speed.
 
 ## Roadmap
 
 - Add model-specific Qwen2-VL / LLaVA chat-template adapters.
 - Add CLIP aesthetic scoring adapter.
-- Add Ray distributed processing implementation.
 - Expand Streamlit dashboard with clip review galleries.
 - Add inference optimization benchmark for a small diffusion/video model.
 
