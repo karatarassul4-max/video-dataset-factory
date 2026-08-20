@@ -14,6 +14,13 @@ def append_jsonl(path: Path, records: Iterable[ClipRecord]) -> None:
             handle.write(json.dumps(record.model_dump(), ensure_ascii=False) + "\n")
 
 
+def write_jsonl(path: Path, records: Iterable[ClipRecord]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        for record in records:
+            handle.write(json.dumps(record.model_dump(), ensure_ascii=False) + "\n")
+
+
 def read_jsonl(path: Path) -> list[ClipRecord]:
     with path.open("r", encoding="utf-8") as handle:
         return [ClipRecord.model_validate_json(line) for line in handle if line.strip()]
