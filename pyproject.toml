@@ -32,6 +32,11 @@ captioning = [
     "torch>=2.1",
     "transformers>=4.44",
 ]
+aesthetic = [
+    "pillow>=10.0",
+    "torch>=2.1",
+    "transformers>=4.44",
+]
 inference = [
     "torch>=2.1",
     "diffusers>=0.30",
