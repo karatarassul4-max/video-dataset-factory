@@ -5,7 +5,11 @@ from pathlib import Path
 
 from video_dataset_factory.caption import CaptionContext, Captioner, build_captioner
 from video_dataset_factory.motion import motion_caption, motion_reject_reasons, motion_score
-from video_dataset_factory.quality import aggregate_quality, build_aesthetic_scorer, quality_reject_reasons
+from video_dataset_factory.quality import (
+    aggregate_quality,
+    build_aesthetic_scorer,
+    quality_reject_reasons,
+)
 from video_dataset_factory.schema import AppConfig, ClipRecord
 from video_dataset_factory.video_io import probe_video, sample_frames
 
