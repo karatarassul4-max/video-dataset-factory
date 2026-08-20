@@ -28,6 +28,10 @@ scene_split:
 captioning:
   provider: heuristic
   model_name: null
+  model_family: qwen2-vl
+  device: auto
+  max_keyframes: 4
+  max_new_tokens: 160
   cache_path: outputs/caption_cache.json
   prompt_style: dense_video
 
