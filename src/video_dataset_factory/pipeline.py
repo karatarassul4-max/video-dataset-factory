@@ -5,7 +5,7 @@ from pathlib import Path
 
 from video_dataset_factory.caption import CaptionContext, Captioner, build_captioner
 from video_dataset_factory.motion import motion_caption, motion_reject_reasons, motion_score
-from video_dataset_factory.quality import aggregate_quality, quality_reject_reasons
+from video_dataset_factory.quality import aggregate_quality, build_aesthetic_scorer, quality_reject_reasons
 from video_dataset_factory.schema import AppConfig, ClipRecord
 from video_dataset_factory.video_io import probe_video, sample_frames
 
@@ -17,10 +17,11 @@ def stable_clip_id(path: Path) -> str:
 
 def process_video(path: Path, config: AppConfig, captioner: Captioner | None = None) -> ClipRecord:
     captioner = captioner or build_captioner(config.captioning)
+    aesthetic_scorer = build_aesthetic_scorer(config.aesthetic)
     metadata = probe_video(path)
     frames = sample_frames(path, config.pipeline.sample_frames)
 
-    quality = aggregate_quality(frames)
+    quality = aggregate_quality(frames, aesthetic_scorer=aesthetic_scorer)
     motion = motion_score(frames)
     motion_text = motion_caption(motion)
 
@@ -42,7 +43,7 @@ def process_video(path: Path, config: AppConfig, captioner: Captioner | None = N
         brightness_score=quality["brightness_score"],
         motion_score=motion,
         ocr_text_area_ratio=quality["ocr_text_area_ratio"],
-        aesthetic_score=None,
+        aesthetic_score=quality["aesthetic_score"],
         caption=captioner.caption(frames, context),
         motion_caption=motion_text,
         keep=not reasons,
