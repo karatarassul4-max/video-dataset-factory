@@ -4,7 +4,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 import cv2
 import numpy as np
@@ -22,6 +22,7 @@ class Captioner(Protocol):
         ...
 
 
+@runtime_checkable
 class BatchCaptioner(Captioner, Protocol):
     def batch_caption(
         self,
