@@ -27,6 +27,7 @@ dev = [
 ray = ["ray>=2.9"]
 dashboard = ["streamlit>=1.36", "pandas>=2.0"]
 captioning = [
+    "accelerate>=0.33",
     "pillow>=10.0",
     "torch>=2.1",
     "transformers>=4.44",
