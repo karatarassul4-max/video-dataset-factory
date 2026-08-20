@@ -49,6 +49,14 @@ Target headline once experiments are complete:
 
 > Processed 1,000 clips with a Ray-based pipeline, rejected low-quality samples with auditable reasons, improved caption usefulness through prompt iteration, and benchmarked inference optimizations on speed and peak VRAM.
 
+## Portfolio Docs
+
+- [Role alignment](docs/HIGGSFIELD_ALIGNMENT.md): how this project maps to video generative AI research engineering work.
+- [Experiment runbook](docs/RUNBOOK.md): end-to-end commands for producing a real dataset report.
+- [Experiment log](docs/EXPERIMENT_LOG.md): hypotheses, risks, and failed-experiment tracking.
+- [Demo dataset summary](examples/demo_summary.md): synthetic fixture report format.
+- [Inference dry-run report](examples/inference_dry_run_report.md): CI-friendly latency/VRAM trade-off example.
+
 ## Why This Matters
 
 Video generation models are only as strong as their data and evaluation loops. This repo demonstrates the engineering work behind research: converting messy raw video into reliable, searchable, measurable training examples.
