@@ -20,6 +20,7 @@ Current status:
 | Captioning interface + cache | Done |
 | Qwen/LLaVA dense-caption prompt adapter | Done |
 | Batched caption generation interface | Done |
+| CLIP-style aesthetic scoring adapter | Done |
 | JSONL manifest writer | Done |
 | CLI pipeline | Done |
 | Single-process/Ray throughput benchmark | Done |
@@ -47,9 +48,11 @@ flowchart LR
     E --> F[Quality filters]
     E --> G[Motion analysis]
     E --> H[VLM captioning]
+    E --> L[Aesthetic scoring]
     F --> I[Manifest]
     G --> I
     H --> I
+    L --> I
     I --> J[Dashboard]
     I --> K[Training / eval jobs]
 ```
@@ -60,9 +63,10 @@ flowchart LR
 - ffmpeg normalization to fixed FPS and resolution.
 - Video metadata probing via OpenCV.
 - Frame sampling for lightweight inspection.
-- Blur, brightness, resolution, duration, and text-area quality gates.
+- Blur, brightness, resolution, duration, text-area, motion, and aesthetic quality gates.
 - Optical-flow motion statistics.
 - Captioning interface with heuristic fallback, JSON cache, keyframe selection, Qwen2-VL/LLaVA prompt formatting, batched caption generation, and optional Transformers VLM backend.
+- Aesthetic scoring via CPU heuristic or optional CLIP preference proxy.
 - JSONL manifest export with keep/reject reasons.
 - Streamlit review dashboard with filters, score charts, reject reason charts, clip preview, and CSV export.
 - CLI commands for splitting scenes, processing one clip, processing a folder, benchmarking preprocessing throughput, and benchmarking inference settings.
@@ -137,6 +141,28 @@ captioning:
 
 For LLaVA-style models, set `model_family: llava`. If `provider: transformers` is selected but `model_name` is empty, the pipeline falls back to the heuristic captioner so CPU-only smoke tests still work.
 
+Enable aesthetic filtering with the fast heuristic scorer:
+
+```yaml
+aesthetic:
+  provider: heuristic
+quality:
+  min_aesthetic_score: 5.0
+```
+
+Enable the optional CLIP preference proxy:
+
+```bash
+pip install -e .[aesthetic]
+```
+
+```yaml
+aesthetic:
+  provider: clip
+  model_name: openai/clip-vit-base-patch32
+  max_frames: 4
+```
+
 Run tests:
 
 ```bash
@@ -187,10 +213,12 @@ Planned entries:
 - Generic VLM prompts produce object lists but miss temporal dynamics.
 - Ray overhead can dominate throughput on tiny clip folders.
 - Aggressive inference optimization trades smoothness for speed.
+- CLIP aesthetic prompts can prefer glossy images over dataset diversity.
 
 ## Roadmap
 
-- Add CLIP aesthetic scoring adapter.
+- Replace CLIP preference proxy with LAION aesthetic linear head.
+- Add duplicate detection with perceptual hashes.
 
 ## License
 
