@@ -1,10 +1,18 @@
 from __future__ import annotations
 
+import json
+import tempfile
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import pandas as pd
 import streamlit as st
+
+from video_dataset_factory.duplicates import mark_duplicates
+from video_dataset_factory.pipeline import process_video
+from video_dataset_factory.reporting import render_markdown_summary, summarize_manifest
+from video_dataset_factory.schema import AppConfig, ClipRecord
 
 SCORE_COLUMNS = [
     "blur_score",
@@ -13,6 +21,8 @@ SCORE_COLUMNS = [
     "ocr_text_area_ratio",
     "aesthetic_score",
 ]
+VIDEO_TYPES = ["mp4", "mov", "mkv", "avi", "webm"]
+DEMO_MANIFEST_PATH = Path("examples/demo_manifest.jsonl")
 
 
 def normalize_records(records: pd.DataFrame) -> pd.DataFrame:
@@ -23,6 +33,8 @@ def normalize_records(records: pd.DataFrame) -> pd.DataFrame:
         normalized["reject_reasons"] = [[] for _ in range(len(normalized))]
     if "caption" not in normalized:
         normalized["caption"] = ""
+    if "duplicate_of" not in normalized:
+        normalized["duplicate_of"] = None
     return normalized
 
 
@@ -58,16 +70,89 @@ def apply_filters(records: pd.DataFrame) -> pd.DataFrame:
     return filtered
 
 
+def render_upload_mode() -> list[ClipRecord] | None:
+    uploaded_files = st.file_uploader(
+        "Upload short video clips",
+        type=VIDEO_TYPES,
+        accept_multiple_files=True,
+    )
+    threshold = st.slider("Near-duplicate pHash threshold", 0, 16, 6)
+    sample_frames = st.slider("Frames sampled per clip", 4, 16, 8, step=2)
+
+    if not uploaded_files:
+        st.info("Upload one or more short clips to build a temporary manifest.")
+        return st.session_state.get("uploaded_records")
+
+    if st.button("Process uploaded videos", type="primary"):
+        records = process_uploaded_files(uploaded_files, sample_frames=sample_frames, threshold=threshold)
+        st.session_state["uploaded_records"] = records
+        st.success(f"Processed {len(records)} uploaded clip(s).")
+
+    return st.session_state.get("uploaded_records")
+
+
+def process_uploaded_files(uploaded_files, sample_frames: int, threshold: int) -> list[ClipRecord]:
+    upload_dir = get_upload_dir()
+    config = AppConfig()
+    config.pipeline.sample_frames = sample_frames
+    config.captioning = {"provider": "heuristic", "cache_path": None}
+    config.aesthetic = {"provider": "heuristic"}
+
+    records: list[ClipRecord] = []
+    progress = st.progress(0.0)
+    for index, uploaded_file in enumerate(uploaded_files):
+        suffix = Path(uploaded_file.name).suffix or ".mp4"
+        safe_name = f"{uuid4().hex}{suffix.lower()}"
+        path = upload_dir / safe_name
+        path.write_bytes(uploaded_file.getbuffer())
+        try:
+            record = process_video(path, config)
+            records.append(record.model_copy(update={"source_path": str(path)}))
+        except Exception as exc:  # noqa: BLE001
+            st.error(f"Could not process {uploaded_file.name}: {exc}")
+        progress.progress((index + 1) / len(uploaded_files))
+
+    return mark_duplicates(records, threshold=threshold)
+
+
+def get_upload_dir() -> Path:
+    if "upload_dir" not in st.session_state:
+        st.session_state["upload_dir"] = str(Path(tempfile.gettempdir()) / f"vdf-{uuid4().hex}")
+    upload_dir = Path(st.session_state["upload_dir"])
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    return upload_dir
+
+
+def load_demo_records() -> list[ClipRecord]:
+    return load_records_from_jsonl(DEMO_MANIFEST_PATH)
+
+
+def load_records_from_jsonl(path: Path) -> list[ClipRecord]:
+    with path.open("r", encoding="utf-8") as handle:
+        return [ClipRecord.model_validate_json(line) for line in handle if line.strip()]
+
+
+def records_to_dataframe(records: list[ClipRecord]) -> pd.DataFrame:
+    return pd.DataFrame([record.model_dump() for record in records])
+
+
+def records_to_jsonl(records: list[ClipRecord]) -> bytes:
+    lines = [json.dumps(record.model_dump(), ensure_ascii=False) for record in records]
+    return ("\n".join(lines) + "\n").encode("utf-8")
+
+
 def render_summary(records: pd.DataFrame, filtered: pd.DataFrame) -> None:
     accepted = int(records["keep"].sum())
     rejected = len(records) - accepted
     yield_rate = accepted / len(records) * 100 if len(records) else 0.0
+    duplicates = int(records["duplicate_of"].notna().sum()) if "duplicate_of" in records else 0
 
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("Total clips", len(records))
     c2.metric("Accepted", accepted)
     c3.metric("Rejected", rejected)
     c4.metric("Yield", f"{yield_rate:.1f}%")
+    c5.metric("Duplicates", duplicates)
 
     st.caption(f"Showing {len(filtered)} filtered rows from {len(records)} total clips.")
 
@@ -116,7 +201,7 @@ def render_gallery(records: pd.DataFrame) -> None:
 def render_clip_card(row: dict[str, Any]) -> None:
     keep = bool(row.get("keep"))
     label = "accepted" if keep else "rejected"
-    title = f"{row.get('clip_id', 'unknown')} · {label}"
+    title = f"{row.get('clip_id', 'unknown')} - {label}"
 
     with st.expander(title, expanded=False):
         source_path = str(row.get("source_path", ""))
@@ -141,7 +226,9 @@ def render_clip_card(row: dict[str, Any]) -> None:
                 "resolution": f"{row.get('width')}x{row.get('height')}",
                 "blur": row.get("blur_score"),
                 "motion": row.get("motion_score"),
+                "aesthetic": row.get("aesthetic_score"),
                 "text_ratio": row.get("ocr_text_area_ratio"),
+                "duplicate_of": row.get("duplicate_of"),
             }
             st.json(metrics)
             reasons = row.get("reject_reasons") or []
@@ -149,40 +236,70 @@ def render_clip_card(row: dict[str, Any]) -> None:
                 st.warning(", ".join(reasons))
 
 
-def render_manifest_table(records: pd.DataFrame) -> None:
-    st.subheader("Manifest Table")
-    st.dataframe(records, use_container_width=True)
-    st.download_button(
+def render_downloads(records: list[ClipRecord], filtered: pd.DataFrame) -> None:
+    st.subheader("Exports")
+    summary = summarize_manifest(records)
+    summary_markdown = render_markdown_summary(summary).encode("utf-8")
+
+    c1, c2, c3 = st.columns(3)
+    c1.download_button(
+        "Download manifest JSONL",
+        records_to_jsonl(records),
+        file_name="manifest.jsonl",
+        mime="application/jsonl",
+    )
+    c2.download_button(
+        "Download summary MD",
+        summary_markdown,
+        file_name="dataset_summary.md",
+        mime="text/markdown",
+    )
+    c3.download_button(
         "Download filtered CSV",
-        records.to_csv(index=False).encode("utf-8"),
+        filtered.to_csv(index=False).encode("utf-8"),
         file_name="filtered_manifest.csv",
         mime="text/csv",
     )
 
 
+def render_manifest_table(records: pd.DataFrame) -> None:
+    st.subheader("Manifest Table")
+    st.dataframe(records, use_container_width=True)
+
+
 def main() -> None:
     st.set_page_config(page_title="Video Dataset Factory", layout="wide")
     st.title("Video Dataset Factory")
+    st.caption("Inspect demo manifests or upload short clips for a temporary quality report.")
 
-    manifest_path = st.sidebar.text_input("Manifest path", "outputs/manifest.jsonl")
-    path = Path(manifest_path)
+    mode = st.sidebar.radio("Input", ["demo manifest", "upload videos", "manifest path"])
 
-    if not path.exists():
-        st.info("Run `vdf process-folder data/clips --output outputs/manifest.jsonl` first.")
-        st.stop()
+    if mode == "demo manifest":
+        records = load_demo_records()
+    elif mode == "upload videos":
+        records = render_upload_mode()
+        if not records:
+            st.stop()
+    else:
+        manifest_path = st.sidebar.text_input("Manifest path", "outputs/manifest.jsonl")
+        path = Path(manifest_path)
+        if not path.exists():
+            st.info("Run `vdf process-folder data/clips --output outputs/manifest.jsonl` first.")
+            st.stop()
+        records = load_records_from_jsonl(path)
 
-    records = pd.read_json(path, lines=True)
-    if records.empty:
+    frame = normalize_records(records_to_dataframe(records))
+    if frame.empty:
         st.warning("Manifest is empty.")
         st.stop()
 
-    records = normalize_records(records)
-    filtered = apply_filters(records)
-    render_summary(records, filtered)
+    filtered = apply_filters(frame)
+    render_summary(frame, filtered)
     render_reject_reasons(filtered)
     render_score_distributions(filtered)
     render_gallery(filtered)
     render_manifest_table(filtered)
+    render_downloads(records, filtered)
 
 
 main()
