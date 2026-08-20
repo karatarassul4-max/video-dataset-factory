@@ -14,7 +14,8 @@ from video_dataset_factory.benchmark_inference import (
 )
 from video_dataset_factory.benchmark_pipeline import run_pipeline_benchmark, write_benchmark_report
 from video_dataset_factory.config import load_config
-from video_dataset_factory.manifest import append_jsonl
+from video_dataset_factory.duplicates import find_duplicate_pairs, mark_duplicates
+from video_dataset_factory.manifest import append_jsonl, read_jsonl, write_jsonl
 from video_dataset_factory.pipeline import process_video
 from video_dataset_factory.scene_split import split_video_into_scenes
 from video_dataset_factory.video_io import is_video_file
@@ -78,6 +79,19 @@ def split_scenes_command(
 
     segments = split_video_into_scenes(video, config.scene_split, dry_run=dry_run)
     _print_segments(segments)
+
+
+@app.command("dedupe-manifest")
+def dedupe_manifest_command(
+    manifest: Path = typer.Argument(..., exists=True, readable=True),
+    output: Path = typer.Option(Path("outputs/manifest_deduped.jsonl"), "--output", "-o"),
+    threshold: int = typer.Option(6, "--threshold", help="Maximum pHash Hamming distance."),
+) -> None:
+    records = read_jsonl(manifest)
+    pairs = find_duplicate_pairs(records, threshold=threshold)
+    deduped = mark_duplicates(records, threshold=threshold)
+    write_jsonl(output, deduped)
+    _print_dedupe_summary(len(records), pairs, output)
 
 
 @app.command("benchmark-folder")
@@ -150,6 +164,15 @@ def _print_segments(segments) -> None:
             segment.clip_path,
         )
 
+    console.print(table)
+
+
+def _print_dedupe_summary(total_records, pairs, output: Path) -> None:
+    table = Table(title="Manifest Dedupe")
+    table.add_column("records")
+    table.add_column("duplicates")
+    table.add_column("output")
+    table.add_row(str(total_records), str(len(pairs)), str(output))
     console.print(table)
 
 
