@@ -26,6 +26,7 @@ class QualityConfig(BaseModel):
     max_ocr_text_area_ratio: float = 0.08
     min_motion_score: float = 0.2
     max_motion_score: float = 50.0
+    min_aesthetic_score: float | None = None
 
 
 class PipelineConfig(BaseModel):
@@ -50,6 +51,7 @@ class AppConfig(BaseModel):
     quality: QualityConfig = Field(default_factory=QualityConfig)
     scene_split: SceneSplitConfig = Field(default_factory=SceneSplitConfig)
     captioning: dict[str, Any] = Field(default_factory=dict)
+    aesthetic: dict[str, Any] = Field(default_factory=dict)
     ray: dict[str, Any] = Field(default_factory=dict)
 
 
