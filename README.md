@@ -18,6 +18,8 @@ Current status:
 | Quality filters | Done |
 | Motion feature extraction | Done |
 | Captioning interface + cache | Done |
+| Qwen/LLaVA dense-caption prompt adapter | Done |
+| Batched caption generation interface | Done |
 | JSONL manifest writer | Done |
 | CLI pipeline | Done |
 | Single-process/Ray throughput benchmark | Done |
@@ -60,7 +62,7 @@ flowchart LR
 - Frame sampling for lightweight inspection.
 - Blur, brightness, resolution, duration, and text-area quality gates.
 - Optical-flow motion statistics.
-- Captioning interface with heuristic fallback, JSON cache, and optional Transformers VLM backend.
+- Captioning interface with heuristic fallback, JSON cache, keyframe selection, Qwen2-VL/LLaVA prompt formatting, batched caption generation, and optional Transformers VLM backend.
 - JSONL manifest export with keep/reject reasons.
 - Streamlit review dashboard with filters, score charts, reject reason charts, clip preview, and CSV export.
 - CLI commands for splitting scenes, processing one clip, processing a folder, benchmarking preprocessing throughput, and benchmarking inference settings.
@@ -126,9 +128,14 @@ Run with an optional Hugging Face VLM backend by changing `configs/default.yaml`
 ```yaml
 captioning:
   provider: transformers
-  model_name: your-vlm-model
+  model_name: Qwen/Qwen2-VL-2B-Instruct
+  model_family: qwen2-vl
+  max_keyframes: 4
+  max_new_tokens: 160
   cache_path: outputs/caption_cache.json
 ```
+
+For LLaVA-style models, set `model_family: llava`. If `provider: transformers` is selected but `model_name` is empty, the pipeline falls back to the heuristic captioner so CPU-only smoke tests still work.
 
 Run tests:
 
@@ -183,7 +190,6 @@ Planned entries:
 
 ## Roadmap
 
-- Add model-specific Qwen2-VL / LLaVA chat-template adapters.
 - Add CLIP aesthetic scoring adapter.
 
 ## License
