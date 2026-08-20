@@ -29,7 +29,12 @@ class InferenceScenario:
 DEFAULT_SCENARIOS = [
     InferenceScenario(name="baseline_30_steps", num_inference_steps=30),
     InferenceScenario(name="fast_8_steps", num_inference_steps=8),
-    InferenceScenario(name="memory_sliced_30_steps", num_inference_steps=30, attention_slicing=True, vae_slicing=True),
+    InferenceScenario(
+        name="memory_sliced_30_steps",
+        num_inference_steps=30,
+        attention_slicing=True,
+        vae_slicing=True,
+    ),
     InferenceScenario(name="compile_8_steps", num_inference_steps=8, torch_compile=True),
 ]
 
@@ -121,18 +126,17 @@ def run_diffusers_text_to_image_benchmark(
             pipe.unet = torch.compile(pipe.unet)
 
         generator = torch.Generator(device="cuda").manual_seed(seed)
-
-        def _generate() -> Any:
-            return pipe(
-                prompt=prompt,
-                num_inference_steps=scenario.num_inference_steps,
-                generator=generator,
-            ).images[0]
+        generate = _build_diffusers_generate_fn(
+            pipe=pipe,
+            prompt=prompt,
+            num_inference_steps=scenario.num_inference_steps,
+            generator=generator,
+        )
 
         results.append(
             benchmark_callable(
                 scenario.name,
-                _generate,
+                generate,
                 notes=(
                     f"steps={scenario.num_inference_steps}, "
                     f"attention_slicing={scenario.attention_slicing}, "
@@ -140,10 +144,25 @@ def run_diffusers_text_to_image_benchmark(
                 ),
             )
         )
-        del pipe
         torch.cuda.empty_cache()
 
     return results
+
+
+def _build_diffusers_generate_fn(
+    pipe: Any,
+    prompt: str,
+    num_inference_steps: int,
+    generator: Any,
+) -> Callable[[], Any]:
+    def _generate() -> Any:
+        return pipe(
+            prompt=prompt,
+            num_inference_steps=num_inference_steps,
+            generator=generator,
+        ).images[0]
+
+    return _generate
 
 
 def write_json_report(path: Path, results: list[BenchmarkResult]) -> None:
