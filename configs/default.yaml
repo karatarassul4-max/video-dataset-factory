@@ -1,0 +1,23 @@
+pipeline:
+  sample_frames: 8
+  output_manifest: outputs/manifest.jsonl
+
+quality:
+  min_duration_sec: 1.0
+  max_duration_sec: 20.0
+  min_width: 256
+  min_height: 256
+  min_blur_score: 40.0
+  min_brightness: 20.0
+  max_brightness: 235.0
+  max_ocr_text_area_ratio: 0.08
+  min_motion_score: 0.2
+  max_motion_score: 50.0
+
+captioning:
+  provider: heuristic
+  model_name: null
+
+ray:
+  enabled: false
+  num_cpus: null
