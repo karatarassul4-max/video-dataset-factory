@@ -33,6 +33,7 @@ MAX_UPLOAD_FILES = 10
 MAX_TOTAL_UPLOAD_MB = 250
 MAX_SINGLE_UPLOAD_MB = 50
 DEFAULT_VLM_MODEL = GROQ_DEFAULT_VISION_MODEL
+LAION_HEAD_URL = "https://github.com/LAION-AI/aesthetic-predictor/raw/main/sa_0_4_vit_b_32_linear.pth"
 
 
 def normalize_records(records: pd.DataFrame) -> pd.DataFrame:
@@ -119,7 +120,7 @@ def render_upload_mode() -> list[ClipRecord] | None:
         help="Groq qwen/qwen3.6-27b currently accepts up to 3 images per request.",
     )
     vlm_model = st.sidebar.text_input("Groq VLM model", get_secret_or_env("GROQ_MODEL") or DEFAULT_VLM_MODEL)
-    st.sidebar.caption("Upload processing uses Groq vision. Set GROQ_API_KEY in app secrets.")
+    st.sidebar.caption("Upload processing uses Groq vision, EasyOCR filtering, and LAION aesthetic scoring.")
 
     if not uploaded_files:
         st.info("Upload clips to build a temporary manifest, or switch to demo data.")
@@ -136,7 +137,7 @@ def render_upload_mode() -> list[ClipRecord] | None:
             st.error("GROQ_API_KEY is required because uploaded clips use real VLM captioning.")
             return st.session_state.get("uploaded_records")
 
-        with st.spinner("Processing uploaded videos with Groq VLM captions..."):
+        with st.spinner("Processing uploaded videos with Groq VLM, EasyOCR, and LAION scoring..."):
             records = process_uploaded_files(
                 uploaded_files,
                 sample_frames=sample_frames,
@@ -199,8 +200,22 @@ def process_uploaded_files(
     config = AppConfig()
     config.pipeline.sample_frames = sample_frames
     config.quality.max_duration_sec = max_duration_sec
+    config.quality.min_aesthetic_score = 5.0
     config.captioning = {"provider": "manual"}
-    config.aesthetic = {"provider": "heuristic"}
+    config.ocr = {
+        "provider": "easyocr",
+        "languages": ["en"],
+        "gpu": False,
+        "max_frames": 4,
+        "min_confidence": 0.35,
+    }
+    config.aesthetic = {
+        "provider": "laion",
+        "model_name": "openai/clip-vit-base-patch32",
+        "head_url": LAION_HEAD_URL,
+        "device": "auto",
+        "max_frames": 4,
+    }
     captioner = GroqVisionCaptioner(
         api_key=vlm_api_key,
         model_name=vlm_model,
