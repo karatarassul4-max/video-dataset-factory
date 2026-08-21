@@ -49,6 +49,13 @@ inference = [
     "transformers>=4.44",
     "accelerate>=0.33",
 ]
+training = [
+    "torch>=2.1",
+    "accelerate>=0.33",
+]
+deeddingspeed = [
+    "deepspeed>=0.14",
+]
 scene = ["scenedetect>=0.6.4"]
 
 [project.scripts]
