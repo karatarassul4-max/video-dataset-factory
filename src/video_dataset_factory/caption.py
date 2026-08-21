@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import re
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -14,6 +15,9 @@ import numpy as np
 
 GROQ_DEFAULT_VISION_MODEL = "qwen/qwen3.6-27b"
 GROQ_MAX_KEYFRAMES = 3
+THINK_BLOCK_RE = re.compile(r"<think>.*?</think>", re.IGNORECASE | re.DOTALL)
+THINK_TAG_RE = re.compile(r"</?think>", re.IGNORECASE)
+CAPTION_PREFIX_RE = re.compile(r"^(?:final\s+)?(?:dense\s+)?caption\s*:\s*", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -41,10 +45,19 @@ class BatchCaptioner(Captioner, Protocol):
 def build_dense_caption_prompt(context: CaptionContext | None = None) -> str:
     motion_hint = context.motion_caption if context and context.motion_caption else "unknown motion"
     return (
-        "Describe this video clip for text-to-video model training. Include subject, action, "
-        "camera motion, scene, lighting, visual style, and temporal dynamics. "
+        "Describe this video clip for text-to-video model training. Return only the final dense "
+        "caption, with no reasoning, no analysis, no <think> tags, and no bullet labels. Include "
+        "subject, action, camera motion, scene, lighting, visual style, and temporal dynamics. "
         f"Motion estimate: {motion_hint}. Avoid guessing identities or protected attributes."
     )
+
+
+def sanitize_caption(text: str) -> str:
+    caption = THINK_BLOCK_RE.sub("", text)
+    caption = THINK_TAG_RE.sub("", caption)
+    caption = CAPTION_PREFIX_RE.sub("", caption.strip())
+    caption = re.sub(r"\s+", " ", caption).strip()
+    return caption
 
 
 def select_keyframes(frames: list[np.ndarray], max_frames: int = 4) -> list[np.ndarray]:
@@ -228,7 +241,7 @@ class OpenAICompatibleVisionCaptioner:
             raise RuntimeError(f"Vision captioning failed: {exc.reason}") from exc
 
         try:
-            caption = data["choices"][0]["message"]["content"].strip()
+            caption = sanitize_caption(data["choices"][0]["message"]["content"])
         except (KeyError, IndexError, AttributeError) as exc:
             raise RuntimeError(f"Unexpected vision response: {data}") from exc
         if not caption:
