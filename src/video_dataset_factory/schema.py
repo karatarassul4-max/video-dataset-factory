@@ -35,7 +35,7 @@ class PipelineConfig(BaseModel):
 
 
 class SceneSplitConfig(BaseModel):
-    detector: str = content
+    detector: str = "content"
     threshold: float = 27.0
     min_scene_len_frames: int = 15
     output_dir: Path = Path("data/clips")
