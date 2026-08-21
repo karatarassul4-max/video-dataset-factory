@@ -3,11 +3,17 @@ from pathlib import Path
 from video_dataset_factory.diffusion_finetune import (
     DiffusionLoraCommandConfig,
     PreparedDiffusionDataset,
+    _as_record_dict,
     build_diffusers_lora_command,
     build_diffusers_lora_shell_command,
     write_diffusion_lora_report,
     write_prepared_dataset_json,
 )
+
+
+class FakeClipRecord:
+    def model_dump(self, mode="json"):
+        return {"clip_id": "clip-1", "keep": True, "mode": mode}
 
 
 def test_diffusers_lora_command_contains_core_arguments():
@@ -33,6 +39,10 @@ def test_diffusers_lora_shell_command_quotes_arguments():
     )
 
     assert "'scripts/train lora.py'" in command or '"scripts/train lora.py"' in command
+
+
+def test_diffusion_lora_export_accepts_pydantic_like_records():
+    assert _as_record_dict(FakeClipRecord()) == {"clip_id": "clip-1", "keep": True, "mode": "json"}
 
 
 def test_diffusion_lora_reports_are_written(tmp_path):
