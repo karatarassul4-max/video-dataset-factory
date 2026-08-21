@@ -2,11 +2,11 @@
 
 A research-oriented pipeline for turning raw videos into training-ready, captioned, filtered datasets for text-to-video and image/video generative model experiments.
 
-This project is designed as a portfolio-grade ML Engineer (Research) project for video generative AI roles. It focuses on the parts that matter in real R&D work: data quality, reproducibility, evaluation, throughput, GPU training mechanics, and clear experiment reporting.
+This project is designed as a portfolio-grade ML Engineer (Research) project for video generative AI roles. It focuses on the parts that matter in real R&D work: data quality, reproducibility, evaluation, throughput, GPU training mechanics, diffusion fine-tuning, and clear experiment reporting.
 
 ## Research Goal & Current Results
 
-**Goal:** build a reproducible video data pipeline that ingests raw clips, splits or normalizes them, extracts quality and motion signals, generates real VLM captions from sampled frames, filters bad samples, removes near-duplicates, exports a training-ready manifest, and benchmarks the training/inference systems around that manifest.
+**Goal:** build a reproducible video data pipeline that ingests raw clips, splits or normalizes them, extracts quality and motion signals, generates real VLM captions from sampled frames, filters bad samples, removes near-duplicates, exports a training-ready manifest, prepares a Diffusers LoRA fine-tuning dataset, and benchmarks the training/inference systems around that manifest.
 
 Current status:
 
@@ -28,6 +28,8 @@ Current status:
 | Manifest summary reporting | Done |
 | JSONL manifest writer | Done |
 | CLI pipeline | Done |
+| Diffusers LoRA dataset export | Done |
+| Stable Diffusion LoRA fine-tuning runbook | Done |
 | Single-process/Ray throughput benchmark | Done |
 | Ray execution adapter | Done |
 | Streamlit upload/review dashboard | Done |
@@ -63,12 +65,13 @@ GPU training benchmark results from `examples/kaggle_training_results.md`:
 
 Target headline for a full dataset run:
 
-> Processed 1,000 clips with a Ray-based pipeline, rejected low-quality samples with auditable reasons, generated frame-grounded VLM captions, and benchmarked CUDA training plus inference optimizations on throughput and peak VRAM.
+> Processed 1,000 clips with a Ray-based pipeline, rejected low-quality samples with auditable reasons, generated frame-grounded VLM captions, exported a Diffusers LoRA fine-tuning dataset, and benchmarked CUDA training plus inference optimizations on throughput and peak VRAM.
 
 ## Portfolio Docs
 
 - [Role alignment](docs/ROLE_ALIGNMENT.md): how this project maps to video generative AI research engineering work.
 - [Experiment runbook](docs/RUNBOOK.md): end-to-end commands for producing a real dataset report.
+- [Diffusion LoRA fine-tuning](docs/DIFFUSION_LORA_FINETUNE.md): manifest-to-Diffusers dataset export and Stable Diffusion LoRA workflow.
 - [Kaggle GPU training](docs/KAGGLE_GPU_TRAINING.md): CUDA, Accelerate, and optional DeepSpeed benchmark workflow.
 - [Kaggle T4x2 training results](examples/kaggle_training_results.md): measured two-GPU training benchmark results.
 - [Streamlit deployment](docs/STREAMLIT_DEPLOY.md): public app deployment settings and limits.
@@ -78,7 +81,7 @@ Target headline for a full dataset run:
 
 ## Why This Matters
 
-Video generation models are only as strong as their data and evaluation loops. This repo demonstrates the engineering work behind research: converting messy raw video into reliable, searchable, measurable training examples, then benchmarking the systems that would consume them.
+Video generation models are only as strong as their data and evaluation loops. This repo demonstrates the engineering work behind research: converting messy raw video into reliable, searchable, measurable training examples, then benchmarking and fine-tuning the systems that would consume them.
 
 The pipeline is intentionally modular:
 
@@ -104,6 +107,8 @@ flowchart LR
     N --> J[Dashboard]
     N --> K[Training / eval jobs]
     N --> P[CUDA training benchmark]
+    N --> Q[Diffusers LoRA fine-tuning dataset]
+    Q --> R[Stable Diffusion LoRA run]
 ```
 
 ## Features
@@ -119,8 +124,10 @@ flowchart LR
 - Aesthetic scoring via CPU heuristic, optional CLIP preference proxy, or LAION-style linear head over open_clip image embeddings.
 - Perceptual hashes and manifest-level near-duplicate rejection.
 - Markdown dataset summary reports for portfolio-ready experiment writeups.
+- Diffusers image-caption dataset export for Stable Diffusion LoRA fine-tuning.
+- Kaggle-ready LoRA fine-tuning runbook using the official Hugging Face Diffusers training script.
 - Streamlit dashboard with small upload processing, manifest upload for large runs, filters, score charts, clip review, and JSONL/CSV/Markdown exports.
-- CLI commands for splitting scenes, processing one clip, processing a folder, deduplicating manifests, summarizing manifests, benchmarking preprocessing throughput, benchmarking training, and benchmarking inference settings.
+- CLI commands for splitting scenes, processing one clip, processing a folder, deduplicating manifests, summarizing manifests, preparing Diffusers LoRA data, benchmarking preprocessing throughput, benchmarking training, and benchmarking inference settings.
 - Ray adapter and benchmark mode for comparing distributed preprocessing throughput.
 - PyTorch manifest-caption contrastive training benchmark with CUDA throughput and peak VRAM reporting.
 - Hugging Face Accelerate config for single-node multi-GPU launch, plus optional DeepSpeed ZeRO-2 config.
@@ -165,6 +172,18 @@ Generate a markdown dataset summary:
 ```bash
 vdf summarize-manifest outputs/manifest_deduped.jsonl --output outputs/dataset_summary.md
 ```
+
+Prepare a Stable Diffusion LoRA fine-tuning dataset:
+
+```bash
+pip install -e .[diffusion-finetune]
+vdf prepare-diffusion-lora-data outputs/manifest_deduped.jsonl \
+  --output-dir outputs/diffusion_lora_dataset \
+  --frames-per-clip 1 \
+  --max-clips 100
+```
+
+This exports `outputs/diffusion_lora_dataset/metadata.jsonl` plus sampled training images. See [docs/DIFFUSION_LORA_FINETUNE.md](docs/DIFFUSION_LORA_FINETUNE.md) for the official Diffusers training command.
 
 Open the dataset review dashboard:
 
