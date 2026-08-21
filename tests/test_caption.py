@@ -5,6 +5,7 @@ import pytest
 
 from video_dataset_factory.caption import (
     GROQ_DEFAULT_VISION_MODEL,
+    GROQ_MAX_KEYFRAMES,
     CachedCaptioner,
     CaptionContext,
     GroqVisionCaptioner,
@@ -181,7 +182,7 @@ def test_groq_captioner_uses_groq_endpoint_and_token_parameter(monkeypatch):
     frames = [np.zeros((4, 4, 3), dtype=np.uint8) for _ in range(4)]
     captioner = GroqVisionCaptioner(
         api_key="test-key",
-        max_keyframes=3,
+        max_keyframes=4,
         max_new_tokens=180,
     )
 
@@ -192,7 +193,7 @@ def test_groq_captioner_uses_groq_endpoint_and_token_parameter(monkeypatch):
     assert captured["payload"]["model"] == GROQ_DEFAULT_VISION_MODEL
     assert captured["payload"]["max_completion_tokens"] == 180
     assert "max_tokens" not in captured["payload"]
-    assert len(captured["payload"]["messages"][0]["content"]) == 4
+    assert len(captured["payload"]["messages"][0]["content"]) == GROQ_MAX_KEYFRAMES + 1
 
 
 def test_cached_captioner_reuses_clip_id(tmp_path):
