@@ -24,7 +24,32 @@ from video_dataset_factory.schema import AppConfig, ClipRecord
 SCORE_COLUMNS = [
     "blur_score",
     "brightness_score",
+    "contrast_score",
+    "colorfulness_score",
     "motion_score",
+    "motion_p95_score",
+    "motion_stability_score",
+    "ocr_text_area_ratio",
+    "aesthetic_score",
+]
+SCORE_HELP = {
+    "blur_score": "Higher means sharper frames; low values usually indicate blur.",
+    "brightness_score": "Average grayscale brightness across sampled frames.",
+    "contrast_score": "Grayscale standard deviation; low values indicate flat, low-contrast clips.",
+    "colorfulness_score": "Color variation score; low values indicate muted or nearly monochrome clips.",
+    "motion_score": "Median optical-flow magnitude between sampled frames.",
+    "motion_p95_score": "95th percentile optical-flow magnitude; catches sudden motion spikes.",
+    "motion_stability_score": "0-1 stability proxy; higher means motion is more even across sampled frames.",
+    "ocr_text_area_ratio": "Estimated frame area occupied by detected text or watermark boxes.",
+    "aesthetic_score": "LAION-style CLIP aesthetic score, median over sampled frames, clamped to 0-10.",
+}
+DEFAULT_SCORE_COLUMNS = [
+    "blur_score",
+    "brightness_score",
+    "contrast_score",
+    "motion_score",
+    "motion_p95_score",
+    "motion_stability_score",
     "ocr_text_area_ratio",
     "aesthetic_score",
 ]
@@ -312,9 +337,13 @@ def render_score_distributions(records: pd.DataFrame) -> None:
         st.info("No score columns available.")
         return
 
-    selected = st.multiselect("Score columns", available, default=available[:4])
+    default = [column for column in DEFAULT_SCORE_COLUMNS if column in available]
+    selected = st.multiselect("Score columns", available, default=default)
     if selected:
         st.line_chart(records[selected].reset_index(drop=True))
+        with st.expander("Score guide", expanded=False):
+            for column in selected:
+                st.caption(f"{column}: {SCORE_HELP.get(column, 'No description available.')}")
 
 
 def render_gallery(records: pd.DataFrame) -> None:
@@ -359,7 +388,12 @@ def render_clip_card(row: dict[str, Any]) -> None:
                 "fps": row.get("fps"),
                 "resolution": f"{row.get('width')}x{row.get('height')}",
                 "blur": row.get("blur_score"),
+                "brightness": row.get("brightness_score"),
+                "contrast": row.get("contrast_score"),
+                "colorfulness": row.get("colorfulness_score"),
                 "motion": row.get("motion_score"),
+                "motion_p95": row.get("motion_p95_score"),
+                "motion_stability": row.get("motion_stability_score"),
                 "aesthetic": row.get("aesthetic_score"),
                 "text_ratio": row.get("ocr_text_area_ratio"),
                 "duplicate_of": row.get("duplicate_of"),
