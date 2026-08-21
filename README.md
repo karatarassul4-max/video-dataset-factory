@@ -6,7 +6,7 @@ This project is designed as a portfolio-grade ML Engineer (Research) project for
 
 ## Research Goal & Current Results
 
-**Goal:** build a reproducible video data pipeline that ingests raw clips, splits or normalizes them, extracts quality and motion signals, generates captions, filters bad samples, removes near-duplicates, and exports a training-ready manifest.
+**Goal:** build a reproducible video data pipeline that ingests raw clips, splits or normalizes them, extracts quality and motion signals, generates real VLM captions from sampled frames, filters bad samples, removes near-duplicates, and exports a training-ready manifest.
 
 Current status:
 
@@ -20,6 +20,7 @@ Current status:
 | Captioning interface + cache | Done |
 | Qwen/LLaVA dense-caption prompt adapter | Done |
 | Batched caption generation interface | Done |
+| OpenAI-compatible VLM captioning backend | Done |
 | CLIP-style aesthetic scoring adapter | Done |
 | Perceptual duplicate detection | Done |
 | Manifest summary reporting | Done |
@@ -48,7 +49,7 @@ These are synthetic smoke-test artifacts, not benchmark claims. For a real appli
 
 Target headline once experiments are complete:
 
-> Processed 1,000 clips with a Ray-based pipeline, rejected low-quality samples with auditable reasons, improved caption usefulness through prompt iteration, and benchmarked inference optimizations on speed and peak VRAM.
+> Processed 1,000 clips with a Ray-based pipeline, rejected low-quality samples with auditable reasons, generated frame-grounded VLM captions, and benchmarked inference optimizations on speed and peak VRAM.
 
 ## Portfolio Docs
 
@@ -94,7 +95,7 @@ flowchart LR
 - Frame sampling for lightweight inspection.
 - Blur, brightness, resolution, duration, text-area, motion, and aesthetic quality gates.
 - Optical-flow motion statistics.
-- Captioning interface with heuristic fallback, JSON cache, keyframe selection, Qwen2-VL/LLaVA prompt formatting, batched caption generation, and optional Transformers VLM backend.
+- Captioning interface with JSON cache, keyframe selection, Qwen2-VL/LLaVA prompt formatting, batched caption generation, OpenAI-compatible hosted VLM calls, and optional local Transformers VLM backend.
 - Aesthetic scoring via CPU heuristic or optional CLIP preference proxy.
 - Perceptual hashes and manifest-level near-duplicate rejection.
 - Markdown dataset summary reports for portfolio-ready experiment writeups.
@@ -157,6 +158,8 @@ Deploy on Streamlit Community Cloud:
 | Branch | `main` |
 | Main file path | `dashboards/app.py` |
 
+The public upload path uses real VLM captioning. Add `OPENAI_API_KEY` in Streamlit app secrets before using `upload videos`; optionally add `VLM_MODEL` to override the default `gpt-4o-mini` model. The app sends sampled keyframes, not the full video file, to the vision model.
+
 The public app can process up to 10 short uploaded videos in a temporary session. For 50+ clips, run the CLI locally or on a worker, then upload the generated `manifest.jsonl` in the app's `upload manifest JSONL` mode. See [docs/STREAMLIT_DEPLOY.md](docs/STREAMLIT_DEPLOY.md) for details.
 
 Benchmark preprocessing throughput:
@@ -179,7 +182,19 @@ pip install -e .[inference]
 vdf benchmark-inference --real --model runwayml/stable-diffusion-v1-5
 ```
 
-Run with an optional Hugging Face VLM backend by changing `configs/default.yaml`:
+Run with an OpenAI-compatible hosted VLM backend:
+
+```yaml
+captioning:
+  provider: openai
+  api_key: ${OPENAI_API_KEY}
+  model_name: gpt-4o-mini
+  max_keyframes: 4
+  max_new_tokens: 180
+  cache_path: outputs/caption_cache.json
+```
+
+Run with an optional local Hugging Face VLM backend by changing `configs/default.yaml`:
 
 ```yaml
 captioning:
@@ -191,7 +206,7 @@ captioning:
   cache_path: outputs/caption_cache.json
 ```
 
-For LLaVA-style models, set `model_family: llava`. If `provider: transformers` is selected but `model_name` is empty, the pipeline falls back to the heuristic captioner so CPU-only smoke tests still work.
+For LLaVA-style models, set `model_family: llava`. If a real VLM provider is selected without its required key or model name, the pipeline raises an error instead of emitting fake captions.
 
 Enable aesthetic filtering with the fast heuristic scorer:
 
