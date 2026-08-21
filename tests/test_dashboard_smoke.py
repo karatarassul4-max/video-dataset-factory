@@ -11,6 +11,7 @@ def test_dashboard_has_review_controls():
     assert "Reject reasons" in content
     assert "Clip Review" in content
     assert "Download filtered CSV" in content
+    assert "Search captions / paths" in content
 
 
 def test_dashboard_has_upload_demo_controls():
@@ -18,6 +19,7 @@ def test_dashboard_has_upload_demo_controls():
 
     assert "Upload up to 10 short video clips" in content
     assert "Process uploaded videos" in content
+    assert "Max accepted clip duration (seconds)" in content
     assert "Download manifest JSONL" in content
     assert "use demo data" in content
 
