@@ -24,8 +24,8 @@ The `upload videos` path uses Groq vision captioning and requires an API key. Ad
 
 ```toml
 GROQ_API_KEY = "gsk_..."
-# Optional. Defaults to meta-llama/llama-4-scout-17b-16e-instruct.
-GROQ_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
+# Optional. Defaults to qwen/qwen3.6-27b.
+GROQ_MODEL = "qwen/qwen3.6-27b"
 ```
 
 If `GROQ_API_KEY` is missing, uploaded videos are not processed. The app intentionally refuses to generate placeholder captions.
