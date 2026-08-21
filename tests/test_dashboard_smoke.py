@@ -21,9 +21,9 @@ def test_dashboard_has_upload_demo_controls():
     assert "Process uploaded videos" in content
     assert "Max accepted clip duration (seconds)" in content
     assert "VLM keyframes per clip" in content
-    assert "VLM model" in content
-    assert "OPENAI_API_KEY is required" in content
-    assert "OpenAIVisionCaptioner" in content
+    assert "Groq VLM model" in content
+    assert "GROQ_API_KEY is required" in content
+    assert "GroqVisionCaptioner" in content
     assert "captioner=captioner" in content
     assert "Download manifest JSONL" in content
     assert "use demo data" in content
