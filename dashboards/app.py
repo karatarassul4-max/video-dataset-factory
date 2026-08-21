@@ -41,7 +41,7 @@ SCORE_HELP = {
     "motion_p95_score": "95th percentile optical-flow magnitude; catches sudden motion spikes.",
     "motion_stability_score": "0-1 stability proxy; higher means motion is more even across sampled frames.",
     "ocr_text_area_ratio": "Estimated frame area occupied by detected text or watermark boxes.",
-    "aesthetic_score": "LAION-style CLIP aesthetic score, median over sampled frames, clamped to 0-10.",
+    "aesthetic_score": "LAION/open_clip aesthetic score, median over sampled frames, clamped to 0-10.",
 }
 DEFAULT_SCORE_COLUMNS = [
     "blur_score",
@@ -136,6 +136,14 @@ def render_upload_mode() -> list[ClipRecord] | None:
         step=5,
         help="Videos longer than this are marked with duration_too_long.",
     )
+    min_aesthetic_score = st.slider(
+        "Min aesthetic score",
+        min_value=0.0,
+        max_value=8.0,
+        value=4.0,
+        step=0.25,
+        help="Set to 0.0 to keep aesthetic as a report-only score instead of a reject gate.",
+    )
     threshold = st.slider("Near-duplicate pHash threshold", 0, 16, 6)
     sample_frames = st.slider("Frames sampled per clip", 4, 16, 8, step=2)
     max_vlm_keyframes = st.slider(
@@ -169,6 +177,7 @@ def render_upload_mode() -> list[ClipRecord] | None:
                 sample_frames=sample_frames,
                 threshold=threshold,
                 max_duration_sec=float(max_duration_sec),
+                min_aesthetic_score=float(min_aesthetic_score),
                 vlm_model=vlm_model,
                 vlm_api_key=api_key,
                 max_vlm_keyframes=max_vlm_keyframes,
@@ -218,6 +227,7 @@ def process_uploaded_files(
     sample_frames: int,
     threshold: int,
     max_duration_sec: float,
+    min_aesthetic_score: float,
     vlm_model: str,
     vlm_api_key: str,
     max_vlm_keyframes: int,
@@ -226,7 +236,7 @@ def process_uploaded_files(
     config = AppConfig()
     config.pipeline.sample_frames = sample_frames
     config.quality.max_duration_sec = max_duration_sec
-    config.quality.min_aesthetic_score = 5.0
+    config.quality.min_aesthetic_score = None if min_aesthetic_score <= 0.0 else min_aesthetic_score
     config.captioning = {"provider": "manual"}
     config.ocr = {
         "provider": "easyocr",
@@ -237,7 +247,9 @@ def process_uploaded_files(
     }
     config.aesthetic = {
         "provider": "laion",
-        "model_name": "openai/clip-vit-base-patch32",
+        "model_name": "ViT-B-32",
+        "pretrained": "openai",
+        "head_variant": "vit_b_32",
         "head_url": LAION_HEAD_URL,
         "device": "auto",
         "max_frames": 4,
