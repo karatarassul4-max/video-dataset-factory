@@ -35,7 +35,7 @@ class PipelineConfig(BaseModel):
 
 
 class SceneSplitConfig(BaseModel):
-    detector: str = "content"
+    detector: str = content
     threshold: float = 27.0
     min_scene_len_frames: int = 15
     output_dir: Path = Path("data/clips")
@@ -66,7 +66,11 @@ class ClipRecord(BaseModel):
     frame_count: int
     blur_score: float | None = None
     brightness_score: float | None = None
+    contrast_score: float | None = None
+    colorfulness_score: float | None = None
     motion_score: float | None = None
+    motion_p95_score: float | None = None
+    motion_stability_score: float | None = None
     ocr_text_area_ratio: float | None = None
     aesthetic_score: float | None = None
     perceptual_hash: str | None = None
