@@ -21,6 +21,7 @@ def test_dashboard_has_upload_demo_controls():
     assert "Process uploaded videos" in content
     assert "Max accepted clip duration (seconds)" in content
     assert "VLM keyframes per clip" in content
+    assert "GROQ_MAX_KEYFRAMES" in content
     assert "Groq VLM model" in content
     assert "GROQ_API_KEY is required" in content
     assert "GroqVisionCaptioner" in content
