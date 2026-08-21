@@ -46,7 +46,7 @@ The hosted upload path intentionally limits one run to:
 - up to 50 MB per file;
 - up to 250 MB total.
 
-Uploaded videos are not sent as full video files to Groq. The app samples up to 5 keyframes per clip and sends those image frames with the dense-caption prompt. Groq vision currently supports a maximum of 5 images per request.
+Uploaded videos are not sent as full video files to Groq. The app samples up to 3 keyframes per clip and sends those image frames with the dense-caption prompt. The current Groq `qwen/qwen3.6-27b` vision model accepts up to 3 images per request.
 
 For 50+ clips, run the CLI locally or on a worker, then upload the generated manifest in `upload manifest JSONL` mode:
 
