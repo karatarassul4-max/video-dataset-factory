@@ -20,6 +20,11 @@ class FakeTextDetector:
         return 0.42
 
 
+class FakeTensorLike:
+    def norm(self, *args, **kwargs):
+        return self
+
+
 class FakePoolerOutput:
     def __init__(self, pooler_output):
         self.pooler_output = pooler_output
@@ -99,7 +104,7 @@ def test_build_aesthetic_scorer_returns_none_by_default():
 
 
 def test_get_clip_image_features_keeps_tensor_outputs():
-    values = np.asarray([[1.0, 2.0]], dtype=np.float32)
+    values = FakeTensorLike()
 
     features = _get_clip_image_features(FakeCLIPModelWithTensor(), {"pixel_values": values})
 
