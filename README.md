@@ -21,6 +21,8 @@ Current status:
 | Qwen/LLaVA dense-caption prompt adapter | Done |
 | Batched caption generation interface | Done |
 | Groq/OpenAI-compatible VLM captioning backend | Done |
+| EasyOCR/Tesseract text and watermark filtering | Done |
+| LAION-style aesthetic linear-head adapter | Done |
 | CLIP-style aesthetic scoring adapter | Done |
 | Perceptual duplicate detection | Done |
 | Manifest summary reporting | Done |
@@ -77,11 +79,13 @@ flowchart LR
     E --> H[VLM captioning]
     E --> L[Aesthetic scoring]
     E --> M[Perceptual hashing]
+    E --> O[OCR / watermark detection]
     F --> I[Manifest]
     G --> I
     H --> I
     L --> I
     M --> N[Dedupe manifest]
+    O --> I
     I --> N
     N --> J[Dashboard]
     N --> K[Training / eval jobs]
@@ -95,8 +99,9 @@ flowchart LR
 - Frame sampling for lightweight inspection.
 - Blur, brightness, resolution, duration, text-area, motion, and aesthetic quality gates.
 - Optical-flow motion statistics.
+- Text/watermark filtering through a fast proxy, EasyOCR, or Tesseract.
 - Captioning interface with JSON cache, keyframe selection, Qwen2-VL/LLaVA prompt formatting, batched caption generation, Groq/OpenAI-compatible hosted VLM calls, and optional local Transformers VLM backend.
-- Aesthetic scoring via CPU heuristic or optional CLIP preference proxy.
+- Aesthetic scoring via CPU heuristic, optional CLIP preference proxy, or LAION-style linear head over CLIP image embeddings.
 - Perceptual hashes and manifest-level near-duplicate rejection.
 - Markdown dataset summary reports for portfolio-ready experiment writeups.
 - Streamlit dashboard with small upload processing, manifest upload for large runs, filters, score charts, clip review, and JSONL/CSV/Markdown exports.
@@ -196,6 +201,43 @@ captioning:
 
 Groq vision uses the OpenAI-compatible Chat Completions endpoint. The current `qwen/qwen3.6-27b` vision model accepts up to 3 images per request, so the Groq adapter caps sampled keyframes at 3. The older `meta-llama/llama-4-scout-17b-16e-instruct` model is no longer a safe default for free/developer tiers. See the Groq vision docs: https://console.groq.com/docs/vision
 
+Enable real OCR filtering:
+
+```bash
+pip install -e .[ocr]
+```
+
+```yaml
+ocr:
+  provider: easyocr  # or tesseract
+  languages: [en]
+  gpu: false
+  max_frames: 4
+  min_confidence: 0.35
+quality:
+  max_ocr_text_area_ratio: 0.08
+```
+
+`easyocr` works fully from Python dependencies. `tesseract` also requires the system Tesseract binary to be installed and visible on PATH.
+
+Enable LAION-style aesthetic filtering with a downloaded linear-head checkpoint:
+
+```bash
+pip install -e .[aesthetic]
+```
+
+```yaml
+aesthetic:
+  provider: laion
+  model_name: openai/clip-vit-base-patch32
+  head_path: models/laion_aesthetic_head.pt
+  max_frames: 4
+quality:
+  min_aesthetic_score: 5.0
+```
+
+The LAION adapter uses normalized CLIP image embeddings plus a linear head. Use `provider: clip` for a prompt-comparison proxy when you do not have linear-head weights yet.
+
 Run with an optional local Hugging Face VLM backend by changing `configs/default.yaml`:
 
 ```yaml
@@ -209,28 +251,6 @@ captioning:
 ```
 
 For LLaVA-style models, set `model_family: llava`. If a real VLM provider is selected without its required key or model name, the pipeline raises an error instead of emitting fake captions.
-
-Enable aesthetic filtering with the fast heuristic scorer:
-
-```yaml
-aesthetic:
-  provider: heuristic
-quality:
-  min_aesthetic_score: 5.0
-```
-
-Enable the optional CLIP preference proxy:
-
-```bash
-pip install -e .[aesthetic]
-```
-
-```yaml
-aesthetic:
-  provider: clip
-  model_name: openai/clip-vit-base-patch32
-  max_frames: 4
-```
 
 Run tests:
 
@@ -287,11 +307,12 @@ Planned entries:
 - Aggressive inference optimization trades smoothness for speed.
 - CLIP aesthetic prompts can prefer glossy images over dataset diversity.
 - pHash threshold above 8 starts grouping visually different clips with similar composition.
+- LAION aesthetic thresholds may over-prefer glossy clips and reduce dataset diversity.
 
 ## Roadmap
 
-- Replace CLIP preference proxy with LAION aesthetic linear head.
 - Run the pipeline on 50-100 real Creative Commons clips and commit the result report.
+- Tune OCR and LAION aesthetic thresholds from manual review precision.
 
 ## License
 
