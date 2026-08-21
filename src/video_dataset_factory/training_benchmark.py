@@ -172,7 +172,10 @@ def run_training_benchmark(config: TrainingBenchmarkConfig) -> TrainingBenchmark
         samples_per_second=(len(dataset) * config.epochs) / seconds,
         final_loss=final_loss,
         peak_vram_mb=peak_vram,
-        notes="Manifest-caption contrastive training benchmark; use accelerate config for DDP/DeepSpeed.",
+        notes=(
+            "Manifest-caption contrastive training benchmark; "
+            "use accelerate config for DDP/DeepSpeed."
+        ),
     )
 
 
@@ -210,13 +213,24 @@ class ManifestContrastiveDataset:  # constructed with torch Dataset base to keep
                 row = self.rows[index]
                 features = _row_features(row, self.config.feature_dim)
                 tokens = _caption_tokens(row.get("caption", ""), self.config)
-                return torch.tensor(features, dtype=torch.float32), torch.tensor(tokens, dtype=torch.long)
+                return (
+                    torch.tensor(features, dtype=torch.float32),
+                    torch.tensor(tokens, dtype=torch.long),
+                )
 
         return _Dataset()
 
 
 class TinyManifestContrastiveModel:  # constructed with lazy torch/nn modules
-    def __new__(cls, feature_dim: int, vocab_size: int, hidden_dim: int, embedding_dim: int, torch, nn):
+    def __new__(
+        cls,
+        feature_dim: int,
+        vocab_size: int,
+        hidden_dim: int,
+        embedding_dim: int,
+        torch,
+        nn,
+    ):
         class _Model(nn.Module):
             def __init__(self) -> None:
                 super().__init__()
@@ -247,7 +261,9 @@ def _contrastive_loss(outputs, functional) -> object:
     text = functional.normalize(text, dim=-1)
     logits = logit_scale * video @ text.t()
     labels = logits.new_tensor(list(range(logits.shape[0]))).long()
-    return (functional.cross_entropy(logits, labels) + functional.cross_entropy(logits.t(), labels)) / 2
+    loss_video = functional.cross_entropy(logits, labels)
+    loss_text = functional.cross_entropy(logits.t(), labels)
+    return (loss_video + loss_text) / 2
 
 
 def _row_features(row: dict, feature_dim: int) -> list[float]:
@@ -285,6 +301,10 @@ def _synthetic_rows(count: int) -> list[dict]:
     motions = ["static", "smooth camera pan", "fast handheld motion", "subject walking"]
     scenes = ["street", "gym", "studio", "car interior"]
     for index in range(count):
+        caption = (
+            f"A {motions[index % len(motions)]} video "
+            f"in a {scenes[index % len(scenes)]} scene."
+        )
         rows.append(
             {
                 "clip_id": f"synthetic_{index:05d}",
@@ -302,7 +322,7 @@ def _synthetic_rows(count: int) -> list[dict]:
                 "motion_stability_score": 0.55 + (index % 5) * 0.08,
                 "aesthetic_score": 4.5 + (index % 6) * 0.35,
                 "ocr_text_area_ratio": 0.0,
-                "caption": f"A {motions[index % len(motions)]} video in a {scenes[index % len(scenes)]} scene.",
+                "caption": caption,
             }
         )
     return rows
