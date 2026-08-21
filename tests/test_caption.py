@@ -4,9 +4,9 @@ import numpy as np
 import pytest
 
 from video_dataset_factory.caption import (
+    GROQ_DEFAULT_VISION_MODEL,
     CachedCaptioner,
     CaptionContext,
-    GROQ_DEFAULT_VISION_MODEL,
     GroqVisionCaptioner,
     HeuristicCaptioner,
     OpenAIVisionCaptioner,
