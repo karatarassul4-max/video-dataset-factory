@@ -51,6 +51,7 @@ class AppConfig(BaseModel):
     quality: QualityConfig = Field(default_factory=QualityConfig)
     scene_split: SceneSplitConfig = Field(default_factory=SceneSplitConfig)
     captioning: dict[str, Any] = Field(default_factory=dict)
+    ocr: dict[str, Any] = Field(default_factory=dict)
     aesthetic: dict[str, Any] = Field(default_factory=dict)
     ray: dict[str, Any] = Field(default_factory=dict)
 
