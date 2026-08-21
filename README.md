@@ -20,7 +20,7 @@ Current status:
 | Captioning interface + cache | Done |
 | Qwen/LLaVA dense-caption prompt adapter | Done |
 | Batched caption generation interface | Done |
-| OpenAI-compatible VLM captioning backend | Done |
+| Groq/OpenAI-compatible VLM captioning backend | Done |
 | CLIP-style aesthetic scoring adapter | Done |
 | Perceptual duplicate detection | Done |
 | Manifest summary reporting | Done |
@@ -95,7 +95,7 @@ flowchart LR
 - Frame sampling for lightweight inspection.
 - Blur, brightness, resolution, duration, text-area, motion, and aesthetic quality gates.
 - Optical-flow motion statistics.
-- Captioning interface with JSON cache, keyframe selection, Qwen2-VL/LLaVA prompt formatting, batched caption generation, OpenAI-compatible hosted VLM calls, and optional local Transformers VLM backend.
+- Captioning interface with JSON cache, keyframe selection, Qwen2-VL/LLaVA prompt formatting, batched caption generation, Groq/OpenAI-compatible hosted VLM calls, and optional local Transformers VLM backend.
 - Aesthetic scoring via CPU heuristic or optional CLIP preference proxy.
 - Perceptual hashes and manifest-level near-duplicate rejection.
 - Markdown dataset summary reports for portfolio-ready experiment writeups.
@@ -158,7 +158,7 @@ Deploy on Streamlit Community Cloud:
 | Branch | `main` |
 | Main file path | `dashboards/app.py` |
 
-The public upload path uses real VLM captioning. Add `OPENAI_API_KEY` in Streamlit app secrets before using `upload videos`; optionally add `VLM_MODEL` to override the default `gpt-4o-mini` model. The app sends sampled keyframes, not the full video file, to the vision model.
+The public upload path uses real Groq VLM captioning. Add `GROQ_API_KEY` in Streamlit app secrets before using `upload videos`; optionally add `GROQ_MODEL` to override the default `meta-llama/llama-4-scout-17b-16e-instruct` model. The app sends sampled keyframes, not the full video file, to the vision model.
 
 The public app can process up to 10 short uploaded videos in a temporary session. For 50+ clips, run the CLI locally or on a worker, then upload the generated `manifest.jsonl` in the app's `upload manifest JSONL` mode. See [docs/STREAMLIT_DEPLOY.md](docs/STREAMLIT_DEPLOY.md) for details.
 
@@ -182,17 +182,19 @@ pip install -e .[inference]
 vdf benchmark-inference --real --model runwayml/stable-diffusion-v1-5
 ```
 
-Run with an OpenAI-compatible hosted VLM backend:
+Run with the Groq hosted VLM backend:
 
 ```yaml
 captioning:
-  provider: openai
-  api_key: ${OPENAI_API_KEY}
-  model_name: gpt-4o-mini
+  provider: groq
+  api_key: ${GROQ_API_KEY}
+  model_name: meta-llama/llama-4-scout-17b-16e-instruct
   max_keyframes: 4
   max_new_tokens: 180
   cache_path: outputs/caption_cache.json
 ```
+
+Groq vision uses the OpenAI-compatible Chat Completions endpoint and supports up to 5 images per request for the selected model. See the Groq vision docs: https://console.groq.com/docs/vision
 
 Run with an optional local Hugging Face VLM backend by changing `configs/default.yaml`:
 
