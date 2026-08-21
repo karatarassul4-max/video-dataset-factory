@@ -4,6 +4,7 @@ import json
 import shlex
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Any
 
 import cv2
 
@@ -51,7 +52,8 @@ class DiffusionLoraCommandConfig:
 
 
 def prepare_diffusion_lora_dataset(config: DiffusionDatasetConfig) -> PreparedDiffusionDataset:
-    records = [record for record in read_jsonl(config.manifest_path) if record.get("keep", True)]
+    records = [_as_record_dict(record) for record in read_jsonl(config.manifest_path)]
+    records = [record for record in records if record.get("keep", True)]
     if config.max_clips is not None:
         records = records[: config.max_clips]
 
@@ -162,6 +164,16 @@ def write_diffusion_lora_report(
 def write_prepared_dataset_json(path: Path, dataset: PreparedDiffusionDataset) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(asdict(dataset), indent=2), encoding="utf-8")
+
+
+def _as_record_dict(record: Any) -> dict:
+    if isinstance(record, dict):
+        return record
+    if hasattr(record, "model_dump"):
+        return record.model_dump(mode="json")
+    if hasattr(record, "dict"):
+        return record.dict()
+    raise TypeError(f"Unsupported manifest record type: {type(record).__name__}")
 
 
 def _resolve_source_path(manifest_path: Path, record: dict) -> Path | None:
