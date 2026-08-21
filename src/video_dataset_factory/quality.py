@@ -401,9 +401,7 @@ def _get_clip_image_features(model: Any, inputs: dict[str, Any]) -> Any:
         if hasattr(features, "image_embeds"):
             return features.image_embeds
         if hasattr(features, "pooler_output"):
-            pooled = features.pooler_output
-            projection = getattr(model, "visual_projection", None)
-            return projection(pooled) if projection is not None else pooled
+            return _project_clip_pooler(model, features.pooler_output)
 
     vision_model = getattr(model, "vision_model", None)
     if vision_model is None:
@@ -412,8 +410,27 @@ def _get_clip_image_features(model: Any, inputs: dict[str, Any]) -> Any:
     outputs = vision_model(**inputs)
     if not hasattr(outputs, "pooler_output"):
         raise TypeError("CLIP vision output does not include pooler_output")
+    return _project_clip_pooler(model, outputs.pooler_output)
+
+
+def _project_clip_pooler(model: Any, pooled: Any) -> Any:
     projection = getattr(model, "visual_projection", None)
-    return projection(outputs.pooler_output) if projection is not None else outputs.pooler_output
+    if projection is None:
+        return pooled
+
+    pooled_dim = _last_dim(pooled)
+    in_features = getattr(projection, "in_features", None)
+    if pooled_dim is not None and in_features is not None and pooled_dim != in_features:
+        return pooled
+
+    return projection(pooled)
+
+
+def _last_dim(value: Any) -> int | None:
+    shape = getattr(value, "shape", None)
+    if shape is None or len(shape) == 0:
+        return None
+    return int(shape[-1])
 
 
 def _bbox_area_ratio(
