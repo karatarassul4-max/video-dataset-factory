@@ -16,6 +16,10 @@ class ManifestSummary:
     acceptance_rate: float
     average_aesthetic_score: float | None
     average_motion_score: float | None
+    average_motion_p95_score: float | None
+    average_motion_stability_score: float | None
+    average_contrast_score: float | None
+    average_colorfulness_score: float | None
     reject_reasons: dict[str, int]
 
 
@@ -26,6 +30,14 @@ def summarize_manifest(records: list[ClipRecord]) -> ManifestSummary:
     duplicate_count = sum(1 for record in records if record.duplicate_of is not None)
     aesthetic_scores = [record.aesthetic_score for record in records if record.aesthetic_score is not None]
     motion_scores = [record.motion_score for record in records if record.motion_score is not None]
+    motion_p95_scores = [record.motion_p95_score for record in records if record.motion_p95_score is not None]
+    motion_stability_scores = [
+        record.motion_stability_score for record in records if record.motion_stability_score is not None
+    ]
+    contrast_scores = [record.contrast_score for record in records if record.contrast_score is not None]
+    colorfulness_scores = [
+        record.colorfulness_score for record in records if record.colorfulness_score is not None
+    ]
 
     reason_counts: Counter[str] = Counter()
     for record in records:
@@ -39,6 +51,10 @@ def summarize_manifest(records: list[ClipRecord]) -> ManifestSummary:
         acceptance_rate=0.0 if total == 0 else accepted / total,
         average_aesthetic_score=_mean_or_none(aesthetic_scores),
         average_motion_score=_mean_or_none(motion_scores),
+        average_motion_p95_score=_mean_or_none(motion_p95_scores),
+        average_motion_stability_score=_mean_or_none(motion_stability_scores),
+        average_contrast_score=_mean_or_none(contrast_scores),
+        average_colorfulness_score=_mean_or_none(colorfulness_scores),
         reject_reasons=dict(sorted(reason_counts.items())),
     )
 
@@ -61,6 +77,10 @@ def render_markdown_summary(summary: ManifestSummary) -> str:
         f"| Near-duplicate clips | {summary.duplicate_clips} |",
         f"| Average aesthetic score | {_format_optional(summary.average_aesthetic_score)} |",
         f"| Average motion score | {_format_optional(summary.average_motion_score)} |",
+        f"| Average motion p95 score | {_format_optional(summary.average_motion_p95_score)} |",
+        f"| Average motion stability score | {_format_optional(summary.average_motion_stability_score)} |",
+        f"| Average contrast score | {_format_optional(summary.average_contrast_score)} |",
+        f"| Average colorfulness score | {_format_optional(summary.average_colorfulness_score)} |",
         "",
         "## Reject Reasons",
         "",
