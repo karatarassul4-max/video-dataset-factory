@@ -43,7 +43,7 @@ def normalize_records(records: pd.DataFrame) -> pd.DataFrame:
 
 def apply_filters(records: pd.DataFrame) -> pd.DataFrame:
     status = st.sidebar.radio("Status", ["all", "accepted", "rejected"], horizontal=True)
-    search = st.sidebar.text_input("Caption/source search", "")
+    search = st.sidebar.text_input("Search captions / paths", "")
 
     filtered = records.copy()
     if status == "accepted":
@@ -83,6 +83,14 @@ def render_upload_mode() -> list[ClipRecord] | None:
         type=VIDEO_TYPES,
         accept_multiple_files=True,
     )
+    max_duration_sec = st.slider(
+        "Max accepted clip duration (seconds)",
+        min_value=5,
+        max_value=180,
+        value=20,
+        step=5,
+        help="Videos longer than this are marked with duration_too_long.",
+    )
     threshold = st.slider("Near-duplicate pHash threshold", 0, 16, 6)
     sample_frames = st.slider("Frames sampled per clip", 4, 16, 8, step=2)
 
@@ -97,7 +105,12 @@ def render_upload_mode() -> list[ClipRecord] | None:
 
     if st.button("Process uploaded videos", type="primary"):
         with st.spinner("Processing uploaded videos..."):
-            records = process_uploaded_files(uploaded_files, sample_frames=sample_frames, threshold=threshold)
+            records = process_uploaded_files(
+                uploaded_files,
+                sample_frames=sample_frames,
+                threshold=threshold,
+                max_duration_sec=float(max_duration_sec),
+            )
         st.session_state["uploaded_records"] = records
         st.success(f"Processed {len(records)} uploaded clip(s).")
 
@@ -138,10 +151,16 @@ def render_manifest_upload_mode() -> list[ClipRecord] | None:
     return records
 
 
-def process_uploaded_files(uploaded_files, sample_frames: int, threshold: int) -> list[ClipRecord]:
+def process_uploaded_files(
+    uploaded_files,
+    sample_frames: int,
+    threshold: int,
+    max_duration_sec: float,
+) -> list[ClipRecord]:
     upload_dir = get_upload_dir()
     config = AppConfig()
     config.pipeline.sample_frames = sample_frames
+    config.quality.max_duration_sec = max_duration_sec
     config.captioning = {"provider": "heuristic", "cache_path": None}
     config.aesthetic = {"provider": "heuristic"}
 
