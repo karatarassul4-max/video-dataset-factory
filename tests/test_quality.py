@@ -4,6 +4,7 @@ import pytest
 from video_dataset_factory.quality import (
     HeuristicAestheticScorer,
     _bbox_area_ratio,
+    _get_clip_image_features,
     aggregate_quality,
     brightness_score,
     build_aesthetic_scorer,
@@ -17,6 +18,24 @@ from video_dataset_factory.schema import QualityConfig, VideoMetadata
 class FakeTextDetector:
     def text_area_ratio(self, frames):
         return 0.42
+
+
+class FakePoolerOutput:
+    def __init__(self, pooler_output):
+        self.pooler_output = pooler_output
+
+
+class FakeCLIPModelWithOutput:
+    def get_image_features(self, **inputs):
+        return FakePoolerOutput(inputs["pixel_values"])
+
+    def visual_projection(self, pooled):
+        return pooled + 1
+
+
+class FakeCLIPModelWithTensor:
+    def get_image_features(self, **inputs):
+        return inputs["pixel_values"]
 
 
 def test_brightness_score_tracks_pixel_intensity():
@@ -77,6 +96,22 @@ def test_heuristic_aesthetic_score_is_bounded():
 
 def test_build_aesthetic_scorer_returns_none_by_default():
     assert build_aesthetic_scorer({}) is None
+
+
+def test_get_clip_image_features_keeps_tensor_outputs():
+    values = np.asarray([[1.0, 2.0]], dtype=np.float32)
+
+    features = _get_clip_image_features(FakeCLIPModelWithTensor(), {"pixel_values": values})
+
+    assert features is values
+
+
+def test_get_clip_image_features_projects_pooler_output_objects():
+    values = np.asarray([[1.0, 2.0]], dtype=np.float32)
+
+    features = _get_clip_image_features(FakeCLIPModelWithOutput(), {"pixel_values": values})
+
+    np.testing.assert_array_equal(features, values + 1)
 
 
 def test_resolve_laion_head_path_uses_existing_file(tmp_path):
