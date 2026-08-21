@@ -15,7 +15,11 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the manifest-caption GPU training benchmark.")
     parser.add_argument("--manifest", type=Path, default=None, help="Optional JSONL manifest path.")
     parser.add_argument("--output", type=Path, default=Path("outputs/training_benchmark.json"))
-    parser.add_argument("--markdown-output", type=Path, default=Path("outputs/training_benchmark.md"))
+    parser.add_argument(
+        "--markdown-output",
+        type=Path,
+        default=Path("outputs/training_benchmark.md"),
+    )
     parser.add_argument("--samples", type=int, default=512)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--epochs", type=int, default=1)
