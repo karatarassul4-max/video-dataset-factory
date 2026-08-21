@@ -10,7 +10,7 @@ from uuid import uuid4
 import pandas as pd
 import streamlit as st
 
-from video_dataset_factory.caption import GroqVisionCaptioner
+from video_dataset_factory.caption import GROQ_DEFAULT_VISION_MODEL, GroqVisionCaptioner
 from video_dataset_factory.duplicates import mark_duplicates
 from video_dataset_factory.pipeline import process_video
 from video_dataset_factory.reporting import render_markdown_summary, summarize_manifest
@@ -28,7 +28,7 @@ DEMO_MANIFEST_PATH = Path("examples/demo_manifest.jsonl")
 MAX_UPLOAD_FILES = 10
 MAX_TOTAL_UPLOAD_MB = 250
 MAX_SINGLE_UPLOAD_MB = 50
-DEFAULT_VLM_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
+DEFAULT_VLM_MODEL = GROQ_DEFAULT_VISION_MODEL
 
 
 def normalize_records(records: pd.DataFrame) -> pd.DataFrame:
