@@ -12,6 +12,8 @@ from typing import Any, Protocol, runtime_checkable
 import cv2
 import numpy as np
 
+GROQ_DEFAULT_VISION_MODEL = "qwen/qwen3.6-27b"
+
 
 @dataclass(frozen=True)
 class CaptionContext:
@@ -259,7 +261,7 @@ class GroqVisionCaptioner(OpenAICompatibleVisionCaptioner):
     def __init__(
         self,
         api_key: str,
-        model_name: str = "meta-llama/llama-4-scout-17b-16e-instruct",
+        model_name: str = GROQ_DEFAULT_VISION_MODEL,
         base_url: str = "https://api.groq.com/openai/v1/chat/completions",
         max_new_tokens: int = 180,
         max_keyframes: int = 4,
@@ -366,7 +368,7 @@ def build_captioner(settings: dict) -> Captioner:
     elif provider == "groq":
         backend = GroqVisionCaptioner(
             api_key=settings.get("api_key", ""),
-            model_name=model_name or "meta-llama/llama-4-scout-17b-16e-instruct",
+            model_name=model_name or GROQ_DEFAULT_VISION_MODEL,
             base_url=settings.get("base_url", "https://api.groq.com/openai/v1/chat/completions"),
             max_new_tokens=int(settings.get("max_new_tokens", 180)),
             max_keyframes=int(settings.get("max_keyframes", 4)),
