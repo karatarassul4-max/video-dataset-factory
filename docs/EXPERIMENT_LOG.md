@@ -6,6 +6,8 @@ This log captures hypotheses, expected failure modes, and what to measure next. 
 
 - Input: short normalized clips.
 - Output: JSONL manifest with metadata, quality scores, motion scores, captions, perceptual hashes, keep/reject flags, and reject reasons.
+- Text/watermark filtering: proxy by default, with optional EasyOCR and Tesseract backends.
+- Aesthetic filtering: heuristic or CLIP proxy by default, with optional LAION-style linear head over CLIP image embeddings.
 - Demo fixture: `examples/demo_manifest.jsonl`.
 - CI status: CPU-only lint and tests on Python 3.10 and 3.11.
 
@@ -26,6 +28,14 @@ Hypothesis: Canny edge density can remove clips with watermarks and burned-in ca
 Risk: urban scenes, product labels, and high-frequency textures look like text.
 
 Measurement: false positive rate over manually reviewed rejected clips.
+
+### EasyOCR/Tesseract Watermark Detection
+
+Hypothesis: OCR bounding boxes improve watermark/text rejection precision compared with the edge proxy.
+
+Risk: stylized subtitles, low-resolution logos, and non-Latin text can be missed; sports courts, signs, and UI overlays can be over-rejected.
+
+Measurement: manual precision/recall over accepted and rejected watermark/text candidates, grouped by video category.
 
 ### Motion Threshold Too High
 
@@ -58,6 +68,14 @@ Hypothesis: fewer denoising steps and memory slicing improve speed/VRAM.
 Risk: temporal smoothness or image quality can degrade even when latency improves.
 
 Measurement: latency, peak VRAM, CLIP proxy, and manual visual inspection.
+
+### LAION Aesthetic Threshold Too High
+
+Hypothesis: a LAION-style linear head improves low-quality clip rejection compared with handcrafted heuristics.
+
+Risk: glossy images can be over-preferred, reducing dataset diversity and rejecting useful documentary or low-light clips.
+
+Measurement: aesthetic reject precision, category distribution shift, and manual usefulness score over rejected clips.
 
 ### pHash Threshold Too High
 
