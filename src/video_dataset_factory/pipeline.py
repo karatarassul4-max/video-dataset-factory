@@ -9,6 +9,7 @@ from video_dataset_factory.motion import motion_caption, motion_reject_reasons, 
 from video_dataset_factory.quality import (
     aggregate_quality,
     build_aesthetic_scorer,
+    build_text_detector,
     quality_reject_reasons,
 )
 from video_dataset_factory.schema import AppConfig, ClipRecord
@@ -23,10 +24,15 @@ def stable_clip_id(path: Path) -> str:
 def process_video(path: Path, config: AppConfig, captioner: Captioner | None = None) -> ClipRecord:
     captioner = captioner or build_captioner(config.captioning)
     aesthetic_scorer = build_aesthetic_scorer(config.aesthetic)
+    text_detector = build_text_detector(config.ocr)
     metadata = probe_video(path)
     frames = sample_frames(path, config.pipeline.sample_frames)
 
-    quality = aggregate_quality(frames, aesthetic_scorer=aesthetic_scorer)
+    quality = aggregate_quality(
+        frames,
+        aesthetic_scorer=aesthetic_scorer,
+        text_detector=text_detector,
+    )
     motion = motion_score(frames)
     motion_text = motion_caption(motion)
 
