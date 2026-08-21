@@ -16,6 +16,7 @@ from video_dataset_factory.caption import (
     build_dense_caption_prompt,
     build_openai_vision_messages,
     build_vlm_messages,
+    sanitize_caption,
     select_keyframes,
 )
 
@@ -62,6 +63,15 @@ def test_dense_caption_prompt_includes_motion_context():
 
     assert "temporal dynamics" in prompt
     assert "Moderate motion" in prompt
+    assert "no reasoning" in prompt
+
+
+def test_sanitize_caption_removes_reasoning_markup():
+    raw = "<think>I should analyze frames first.</think> Final caption: A player dribbles quickly."
+
+    caption = sanitize_caption(raw)
+
+    assert caption == "A player dribbles quickly."
 
 
 def test_select_keyframes_spreads_frames_across_clip():
@@ -147,7 +157,15 @@ def test_openai_captioner_calls_vision_endpoint(monkeypatch):
         captured["timeout"] = timeout
         captured["payload"] = json.loads(request.data.decode("utf-8"))
         return FakeHTTPResponse(
-            {"choices": [{"message": {"content": "A person walks across a bright room."}}]}
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": "<think>reasoning</think> Final caption: A person walks."
+                        }
+                    }
+                ]
+            }
         )
 
     monkeypatch.setattr("video_dataset_factory.caption.urllib.request.urlopen", fake_urlopen)
@@ -161,7 +179,7 @@ def test_openai_captioner_calls_vision_endpoint(monkeypatch):
 
     caption = captioner.caption(frames)
 
-    assert caption == "A person walks across a bright room."
+    assert caption == "A person walks."
     assert captured["timeout"] == 12
     assert captured["payload"]["model"] == "vision-test-model"
     assert captured["payload"]["max_tokens"] == 160
