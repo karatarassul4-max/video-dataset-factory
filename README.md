@@ -36,6 +36,7 @@ Current status:
 | PyTorch GPU training benchmark | Done |
 | Accelerate/DDP launch config | Done |
 | DeepSpeed ZeRO-2 launch config | Done |
+| Kaggle T4x2 GPU benchmark run | Done |
 | Transformers VLM backend | Experimental |
 
 Demo fixture results from `examples/demo_manifest.jsonl`:
@@ -52,7 +53,15 @@ Demo fixture results from `examples/demo_manifest.jsonl`:
 
 These are synthetic smoke-test artifacts, not benchmark claims. For a real application, replace them with results from your own clips and keep the generated report in `examples/` or a release artifact.
 
-Target headline once experiments are complete:
+GPU training benchmark results from `examples/kaggle_training_results.md`:
+
+| Run | Distributed type | GPU count | Samples/sec | Peak VRAM MB |
+| --- | --- | ---: | ---: | ---: |
+| Single-process CUDA | DistributedType.NO | 2 | 3106.05 | 27.64 |
+| Accelerate multi-GPU | DistributedType.MULTI_GPU | 2 | 8461.54 | 29.75 |
+| DeepSpeed ZeRO-2 | DistributedType.DEEPSPEED | 2 | 5796.43 | 977.60 |
+
+Target headline for a full dataset run:
 
 > Processed 1,000 clips with a Ray-based pipeline, rejected low-quality samples with auditable reasons, generated frame-grounded VLM captions, and benchmarked CUDA training plus inference optimizations on throughput and peak VRAM.
 
@@ -61,6 +70,7 @@ Target headline once experiments are complete:
 - [Role alignment](docs/ROLE_ALIGNMENT.md): how this project maps to video generative AI research engineering work.
 - [Experiment runbook](docs/RUNBOOK.md): end-to-end commands for producing a real dataset report.
 - [Kaggle GPU training](docs/KAGGLE_GPU_TRAINING.md): CUDA, Accelerate, and optional DeepSpeed benchmark workflow.
+- [Kaggle T4x2 training results](examples/kaggle_training_results.md): measured two-GPU training benchmark results.
 - [Streamlit deployment](docs/STREAMLIT_DEPLOY.md): public app deployment settings and limits.
 - [Experiment log](docs/EXPERIMENT_LOG.md): hypotheses, risks, and failed-experiment tracking.
 - [Demo dataset summary](examples/demo_summary.md): synthetic fixture report format.
