@@ -32,6 +32,11 @@ captioning = [
     "torch>=2.1",
     "transformers>=4.44",
 ]
+ocr = [
+    "easyocr>=1.7",
+    "pillow>=10.0",
+    "pytesseract>=0.3",
+]
 aesthetic = [
     "pillow>=10.0",
     "torch>=2.1",
