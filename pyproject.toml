@@ -53,7 +53,7 @@ training = [
     "torch>=2.1",
     "accelerate>=0.33",
 ]
-deeddingspeed = [
+deepspeed = [
     "deepspeed>=0.14",
 ]
 scene = ["scenedetect>=0.6.4"]
