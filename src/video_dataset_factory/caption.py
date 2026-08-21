@@ -174,31 +174,35 @@ class CachedCaptioner:
             json.dump(self.cache, handle, indent=2, ensure_ascii=False)
 
 
-class OpenAIVisionCaptioner:
+class OpenAICompatibleVisionCaptioner:
     def __init__(
         self,
         api_key: str,
-        model_name: str = "gpt-4o-mini",
-        base_url: str = "https://api.openai.com/v1/chat/completions",
+        model_name: str,
+        base_url: str,
+        api_key_name: str = "API key",
         max_new_tokens: int = 160,
         max_keyframes: int = 4,
         timeout_sec: float = 90.0,
+        token_parameter: str = "max_tokens",
     ):
         if not api_key:
-            raise ValueError("OpenAI vision captioning requires OPENAI_API_KEY")
+            raise ValueError(f"Vision captioning requires {api_key_name}")
         self.api_key = api_key
         self.model_name = model_name
         self.base_url = base_url
+        self.api_key_name = api_key_name
         self.max_new_tokens = max_new_tokens
         self.max_keyframes = max_keyframes
         self.timeout_sec = timeout_sec
+        self.token_parameter = token_parameter
 
     def caption(self, frames: list[np.ndarray], context: CaptionContext | None = None) -> str:
         keyframes = select_keyframes(frames, self.max_keyframes)
         payload = {
             "model": self.model_name,
             "messages": build_openai_vision_messages(keyframes, context),
-            "max_tokens": self.max_new_tokens,
+            self.token_parameter: self.max_new_tokens,
             "temperature": 0.2,
         }
         request = urllib.request.Request(
@@ -216,17 +220,61 @@ class OpenAIVisionCaptioner:
                 data = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             error_body = exc.read().decode("utf-8", errors="replace")
-            raise RuntimeError(f"OpenAI vision captioning failed: {exc.code} {error_body}") from exc
+            raise RuntimeError(f"Vision captioning failed: {exc.code} {error_body}") from exc
         except urllib.error.URLError as exc:
-            raise RuntimeError(f"OpenAI vision captioning failed: {exc.reason}") from exc
+            raise RuntimeError(f"Vision captioning failed: {exc.reason}") from exc
 
         try:
             caption = data["choices"][0]["message"]["content"].strip()
         except (KeyError, IndexError, AttributeError) as exc:
-            raise RuntimeError(f"Unexpected OpenAI vision response: {data}") from exc
+            raise RuntimeError(f"Unexpected vision response: {data}") from exc
         if not caption:
-            raise RuntimeError("OpenAI vision captioning returned an empty caption")
+            raise RuntimeError("Vision captioning returned an empty caption")
         return caption
+
+
+class OpenAIVisionCaptioner(OpenAICompatibleVisionCaptioner):
+    def __init__(
+        self,
+        api_key: str,
+        model_name: str = "gpt-4o-mini",
+        base_url: str = "https://api.openai.com/v1/chat/completions",
+        max_new_tokens: int = 160,
+        max_keyframes: int = 4,
+        timeout_sec: float = 90.0,
+    ):
+        super().__init__(
+            api_key=api_key,
+            model_name=model_name,
+            base_url=base_url,
+            api_key_name="OPENAI_API_KEY",
+            max_new_tokens=max_new_tokens,
+            max_keyframes=max_keyframes,
+            timeout_sec=timeout_sec,
+            token_parameter="max_tokens",
+        )
+
+
+class GroqVisionCaptioner(OpenAICompatibleVisionCaptioner):
+    def __init__(
+        self,
+        api_key: str,
+        model_name: str = "meta-llama/llama-4-scout-17b-16e-instruct",
+        base_url: str = "https://api.groq.com/openai/v1/chat/completions",
+        max_new_tokens: int = 180,
+        max_keyframes: int = 4,
+        timeout_sec: float = 90.0,
+    ):
+        super().__init__(
+            api_key=api_key,
+            model_name=model_name,
+            base_url=base_url,
+            api_key_name="GROQ_API_KEY",
+            max_new_tokens=max_new_tokens,
+            max_keyframes=max_keyframes,
+            timeout_sec=timeout_sec,
+            token_parameter="max_completion_tokens",
+        )
 
 
 class TransformersVLMCaptioner:
@@ -312,6 +360,15 @@ def build_captioner(settings: dict) -> Captioner:
             model_name=model_name or "gpt-4o-mini",
             base_url=settings.get("base_url", "https://api.openai.com/v1/chat/completions"),
             max_new_tokens=int(settings.get("max_new_tokens", 160)),
+            max_keyframes=int(settings.get("max_keyframes", 4)),
+            timeout_sec=float(settings.get("timeout_sec", 90.0)),
+        )
+    elif provider == "groq":
+        backend = GroqVisionCaptioner(
+            api_key=settings.get("api_key", ""),
+            model_name=model_name or "meta-llama/llama-4-scout-17b-16e-instruct",
+            base_url=settings.get("base_url", "https://api.groq.com/openai/v1/chat/completions"),
+            max_new_tokens=int(settings.get("max_new_tokens", 180)),
             max_keyframes=int(settings.get("max_keyframes", 4)),
             timeout_sec=float(settings.get("timeout_sec", 90.0)),
         )
