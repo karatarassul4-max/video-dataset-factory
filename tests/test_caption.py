@@ -6,6 +6,7 @@ import pytest
 from video_dataset_factory.caption import (
     CachedCaptioner,
     CaptionContext,
+    GroqVisionCaptioner,
     HeuristicCaptioner,
     OpenAIVisionCaptioner,
     batch_caption,
@@ -132,6 +133,11 @@ def test_build_captioner_requires_openai_api_key():
         build_captioner({"provider": "openai", "api_key": ""})
 
 
+def test_build_captioner_requires_groq_api_key():
+    with pytest.raises(ValueError, match="GROQ_API_KEY"):
+        build_captioner({"provider": "groq", "api_key": ""})
+
+
 def test_openai_captioner_calls_vision_endpoint(monkeypatch):
     captured = {}
 
@@ -156,7 +162,37 @@ def test_openai_captioner_calls_vision_endpoint(monkeypatch):
     assert caption == "A person walks across a bright room."
     assert captured["timeout"] == 12
     assert captured["payload"]["model"] == "vision-test-model"
+    assert captured["payload"]["max_tokens"] == 160
     assert len(captured["payload"]["messages"][0]["content"]) == 3
+
+
+def test_groq_captioner_uses_groq_endpoint_and_token_parameter(monkeypatch):
+    captured = {}
+
+    def fake_urlopen(request, timeout):
+        captured["url"] = request.full_url
+        captured["payload"] = json.loads(request.data.decode("utf-8"))
+        return FakeHTTPResponse(
+            {"choices": [{"message": {"content": "A car drives through a rainy street."}}]}
+        )
+
+    monkeypatch.setattr("video_dataset_factory.caption.urllib.request.urlopen", fake_urlopen)
+    frames = [np.zeros((4, 4, 3), dtype=np.uint8) for _ in range(4)]
+    captioner = GroqVisionCaptioner(
+        api_key="test-key",
+        model_name="meta-llama/llama-4-scout-17b-16e-instruct",
+        max_keyframes=3,
+        max_new_tokens=180,
+    )
+
+    caption = captioner.caption(frames)
+
+    assert caption == "A car drives through a rainy street."
+    assert captured["url"] == "https://api.groq.com/openai/v1/chat/completions"
+    assert captured["payload"]["model"] == "meta-llama/llama-4-scout-17b-16e-instruct"
+    assert captured["payload"]["max_completion_tokens"] == 180
+    assert "max_tokens" not in captured["payload"]
+    assert len(captured["payload"]["messages"][0]["content"]) == 4
 
 
 def test_cached_captioner_reuses_clip_id(tmp_path):
