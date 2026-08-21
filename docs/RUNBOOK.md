@@ -24,7 +24,7 @@ The default config uses:
 
 - heuristic captions for local CLI smoke runs, unless you switch `captioning.provider` to `groq` or `transformers`;
 - EasyOCR for text/watermark filtering;
-- LAION-style aesthetic scoring with an auto-downloaded `vit_b_32` linear head;
+- LAION-style aesthetic scoring with open_clip embeddings and an auto-downloaded `vit_b_32` linear head;
 - optical-flow motion gates, blur/brightness gates, and duration/resolution gates.
 
 ```bash
@@ -45,12 +45,14 @@ quality:
 
 aesthetic:
   provider: laion
-  model_name: openai/clip-vit-base-patch32
+  model_name: ViT-B-32
+  pretrained: openai
+  head_variant: vit_b_32
   head_path: null
   head_url: https://github.com/LAION-AI/aesthetic-predictor/raw/main/sa_0_4_vit_b_32_linear.pth
   max_frames: 4
 quality:
-  min_aesthetic_score: 5.0
+  min_aesthetic_score: 4.0
 ```
 
 `easyocr` is the easiest portable OCR backend. `tesseract` is also supported, but it requires the system Tesseract binary in addition to the Python package.
