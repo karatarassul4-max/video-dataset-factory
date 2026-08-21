@@ -2,11 +2,11 @@
 
 A research-oriented pipeline for turning raw videos into training-ready, captioned, filtered datasets for text-to-video and image/video generative model experiments.
 
-This project is designed as a portfolio-grade ML Engineer (Research) project for video generative AI roles. It focuses on the parts that matter in real R&D work: data quality, reproducibility, evaluation, throughput, and clear experiment reporting.
+This project is designed as a portfolio-grade ML Engineer (Research) project for video generative AI roles. It focuses on the parts that matter in real R&D work: data quality, reproducibility, evaluation, throughput, GPU training mechanics, and clear experiment reporting.
 
 ## Research Goal & Current Results
 
-**Goal:** build a reproducible video data pipeline that ingests raw clips, splits or normalizes them, extracts quality and motion signals, generates real VLM captions from sampled frames, filters bad samples, removes near-duplicates, and exports a training-ready manifest.
+**Goal:** build a reproducible video data pipeline that ingests raw clips, splits or normalizes them, extracts quality and motion signals, generates real VLM captions from sampled frames, filters bad samples, removes near-duplicates, exports a training-ready manifest, and benchmarks the training/inference systems around that manifest.
 
 Current status:
 
@@ -33,6 +33,9 @@ Current status:
 | Streamlit upload/review dashboard | Done |
 | Streamlit Cloud deployment config | Done |
 | Inference optimization benchmark | Done |
+| PyTorch GPU training benchmark | Done |
+| Accelerate/DDP launch config | Done |
+| DeepSpeed ZeRO-2 launch config | Done |
 | Transformers VLM backend | Experimental |
 
 Demo fixture results from `examples/demo_manifest.jsonl`:
@@ -51,12 +54,13 @@ These are synthetic smoke-test artifacts, not benchmark claims. For a real appli
 
 Target headline once experiments are complete:
 
-> Processed 1,000 clips with a Ray-based pipeline, rejected low-quality samples with auditable reasons, generated frame-grounded VLM captions, and benchmarked inference optimizations on speed and peak VRAM.
+> Processed 1,000 clips with a Ray-based pipeline, rejected low-quality samples with auditable reasons, generated frame-grounded VLM captions, and benchmarked CUDA training plus inference optimizations on throughput and peak VRAM.
 
 ## Portfolio Docs
 
 - [Role alignment](docs/ROLE_ALIGNMENT.md): how this project maps to video generative AI research engineering work.
 - [Experiment runbook](docs/RUNBOOK.md): end-to-end commands for producing a real dataset report.
+- [Kaggle GPU training](docs/KAGGLE_GPU_TRAINING.md): CUDA, Accelerate, and optional DeepSpeed benchmark workflow.
 - [Streamlit deployment](docs/STREAMLIT_DEPLOY.md): public app deployment settings and limits.
 - [Experiment log](docs/EXPERIMENT_LOG.md): hypotheses, risks, and failed-experiment tracking.
 - [Demo dataset summary](examples/demo_summary.md): synthetic fixture report format.
@@ -64,7 +68,7 @@ Target headline once experiments are complete:
 
 ## Why This Matters
 
-Video generation models are only as strong as their data and evaluation loops. This repo demonstrates the engineering work behind research: converting messy raw video into reliable, searchable, measurable training examples.
+Video generation models are only as strong as their data and evaluation loops. This repo demonstrates the engineering work behind research: converting messy raw video into reliable, searchable, measurable training examples, then benchmarking the systems that would consume them.
 
 The pipeline is intentionally modular:
 
@@ -89,6 +93,7 @@ flowchart LR
     I --> N
     N --> J[Dashboard]
     N --> K[Training / eval jobs]
+    N --> P[CUDA training benchmark]
 ```
 
 ## Features
@@ -105,8 +110,10 @@ flowchart LR
 - Perceptual hashes and manifest-level near-duplicate rejection.
 - Markdown dataset summary reports for portfolio-ready experiment writeups.
 - Streamlit dashboard with small upload processing, manifest upload for large runs, filters, score charts, clip review, and JSONL/CSV/Markdown exports.
-- CLI commands for splitting scenes, processing one clip, processing a folder, deduplicating manifests, summarizing manifests, benchmarking preprocessing throughput, and benchmarking inference settings.
+- CLI commands for splitting scenes, processing one clip, processing a folder, deduplicating manifests, summarizing manifests, benchmarking preprocessing throughput, benchmarking training, and benchmarking inference settings.
 - Ray adapter and benchmark mode for comparing distributed preprocessing throughput.
+- PyTorch manifest-caption contrastive training benchmark with CUDA throughput and peak VRAM reporting.
+- Hugging Face Accelerate config for single-node multi-GPU launch, plus optional DeepSpeed ZeRO-2 config.
 - Inference benchmark harness for latency/VRAM trade-offs across steps, slicing, dtype, and compile settings.
 
 ## Quickstart
@@ -172,6 +179,34 @@ Benchmark preprocessing throughput:
 ```bash
 vdf benchmark-folder data/clips --output outputs/pipeline_benchmark.json
 vdf benchmark-folder data/clips --ray --output outputs/pipeline_benchmark_ray.json
+```
+
+Benchmark GPU training mechanics:
+
+```bash
+pip install -e .[training]
+vdf benchmark-training --dry-run
+vdf benchmark-training --real --manifest outputs/manifest_deduped.jsonl \
+  --epochs 2 --batch-size 64 --mixed-precision fp16 \
+  --output outputs/training_benchmark.json \
+  --markdown-output outputs/training_benchmark.md
+```
+
+Run a Kaggle multi-GPU Accelerate benchmark:
+
+```bash
+accelerate launch --config_file configs/accelerate_kaggle.yaml \
+  -m video_dataset_factory.training_entrypoint \
+  --samples 4096 --epochs 2 --batch-size 64 --mixed-precision fp16
+```
+
+Run the optional DeepSpeed ZeRO-2 experiment:
+
+```bash
+pip install -e .[training,deepspeed]
+accelerate launch --config_file configs/accelerate_deepspeed_zero2.yaml \
+  -m video_dataset_factory.training_entrypoint \
+  --samples 4096 --epochs 2 --batch-size 64 --mixed-precision fp16
 ```
 
 Benchmark inference trade-offs without heavyweight model execution:
