@@ -9,11 +9,19 @@ import numpy as np
 
 from video_dataset_factory.schema import QualityConfig, VideoMetadata
 
+DEFAULT_LAION_HEAD_VARIANT = "vit_b_32"
+DEFAULT_LAION_OPEN_CLIP_MODEL = "ViT-B-32"
+DEFAULT_LAION_OPEN_CLIP_PRETRAINED = "openai"
 DEFAULT_LAION_HEAD_URL = (
     "https://github.com/LAION-AI/aesthetic-predictor/"
     "raw/main/sa_0_4_vit_b_32_linear.pth"
 )
 DEFAULT_LAION_HEAD_PATH = Path.home() / ".cache" / "video_dataset_factory" / "sa_0_4_vit_b_32_linear.pth"
+LAION_HEAD_DIMS = {
+    "vit_b_32": 512,
+    "vit_b_16": 512,
+    "vit_l_14": 768,
+}
 
 
 class AestheticScorer(Protocol):
@@ -191,33 +199,38 @@ class CLIPAestheticScorer:
 
 
 class LAIONAestheticScorer:
-    """LAION-style linear aesthetic head over normalized CLIP image embeddings."""
+    """LAION linear aesthetic head over official open_clip image embeddings."""
 
     def __init__(
         self,
-        model_name: str = "openai/clip-vit-base-patch32",
+        model_name: str = DEFAULT_LAION_OPEN_CLIP_MODEL,
+        pretrained: str = DEFAULT_LAION_OPEN_CLIP_PRETRAINED,
+        head_variant: str = DEFAULT_LAION_HEAD_VARIANT,
         head_path: str | Path | None = None,
         head_url: str | None = DEFAULT_LAION_HEAD_URL,
         device: str = "auto",
         max_frames: int = 4,
     ):
         try:
+            import open_clip
             import torch
             from PIL import Image
-            from transformers import CLIPModel, CLIPProcessor
         except ImportError as exc:
             raise RuntimeError("Install aesthetic dependencies with `pip install -e .[aesthetic]`.") from exc
 
         self.torch = torch
         self.image_cls = Image
-        self.processor = CLIPProcessor.from_pretrained(model_name)
         self.device = _resolve_torch_device(torch, device)
-        self.model = CLIPModel.from_pretrained(model_name).to(self.device)
+        self.model, _unused_train_preprocess, self.preprocess = open_clip.create_model_and_transforms(
+            model_name,
+            pretrained=pretrained,
+        )
+        self.model = self.model.to(self.device)
         self.model.eval()
         self.max_frames = max_frames
 
-        projection_dim = int(getattr(self.model.config, "projection_dim", 512))
-        self.linear_head = torch.nn.Linear(projection_dim, 1).to(self.device)
+        head_dim = _laion_head_dim(head_variant)
+        self.linear_head = torch.nn.Linear(head_dim, 1).to(self.device)
         self._load_linear_head(resolve_laion_head_path(head_path, head_url))
         self.linear_head.eval()
 
@@ -226,14 +239,13 @@ class LAIONAestheticScorer:
             return None
 
         selected = _select_evenly_spaced(frames, self.max_frames)
-        images = [self._to_pil(frame) for frame in selected]
-        inputs = self.processor(images=images, return_tensors="pt")
-        inputs = {key: value.to(self.device) for key, value in inputs.items()}
+        image_batch = self.torch.stack([self.preprocess(self._to_pil(frame)) for frame in selected])
+        image_batch = image_batch.to(self.device)
 
         with self.torch.no_grad():
-            features = _get_clip_image_features(self.model, inputs)
+            features = self.model.encode_image(image_batch)
             features = features / features.norm(dim=-1, keepdim=True).clamp_min(1e-6)
-            scores = self.linear_head(features).squeeze(-1)
+            scores = self.linear_head(features.float()).squeeze(-1)
         return float(scores.median().clamp(0.0, 10.0).item())
 
     def _load_linear_head(self, head_path: Path) -> None:
@@ -378,7 +390,9 @@ def build_aesthetic_scorer(settings: dict | None) -> AestheticScorer | None:
         )
     if provider in {"laion", "laion-aesthetic"}:
         return LAIONAestheticScorer(
-            model_name=settings.get("model_name", "openai/clip-vit-base-patch32"),
+            model_name=settings.get("model_name", DEFAULT_LAION_OPEN_CLIP_MODEL),
+            pretrained=settings.get("pretrained", DEFAULT_LAION_OPEN_CLIP_PRETRAINED),
+            head_variant=settings.get("head_variant", DEFAULT_LAION_HEAD_VARIANT),
             head_path=settings.get("head_path"),
             head_url=settings.get("head_url", DEFAULT_LAION_HEAD_URL),
             device=settings.get("device", "auto"),
@@ -440,6 +454,14 @@ def _last_dim(value: Any) -> int | None:
     if shape is None or len(shape) == 0:
         return None
     return int(shape[-1])
+
+
+def _laion_head_dim(head_variant: str) -> int:
+    try:
+        return LAION_HEAD_DIMS[head_variant]
+    except KeyError as exc:
+        supported = ", ".join(sorted(LAION_HEAD_DIMS))
+        raise ValueError(f"Unsupported LAION head variant: {head_variant}. Use one of: {supported}") from exc
 
 
 def _bbox_area_ratio(
