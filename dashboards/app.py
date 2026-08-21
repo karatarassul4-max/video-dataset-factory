@@ -17,6 +17,7 @@ from video_dataset_factory.caption import (
 )
 from video_dataset_factory.duplicates import mark_duplicates
 from video_dataset_factory.pipeline import process_video
+from video_dataset_factory.quality import build_aesthetic_scorer, build_text_detector
 from video_dataset_factory.reporting import render_markdown_summary, summarize_manifest
 from video_dataset_factory.schema import AppConfig, ClipRecord
 
@@ -222,6 +223,8 @@ def process_uploaded_files(
         max_keyframes=max_vlm_keyframes,
         max_new_tokens=180,
     )
+    text_detector = build_text_detector(config.ocr)
+    aesthetic_scorer = build_aesthetic_scorer(config.aesthetic)
 
     records: list[ClipRecord] = []
     progress = st.progress(0.0)
@@ -231,7 +234,13 @@ def process_uploaded_files(
         path = upload_dir / safe_name
         path.write_bytes(uploaded_file.getbuffer())
         try:
-            record = process_video(path, config, captioner=captioner)
+            record = process_video(
+                path,
+                config,
+                captioner=captioner,
+                aesthetic_scorer=aesthetic_scorer,
+                text_detector=text_detector,
+            )
             records.append(record.model_copy(update={"source_path": str(path)}))
         except Exception as exc:  # noqa: BLE001
             st.error(f"Could not process {uploaded_file.name}: {exc}")
