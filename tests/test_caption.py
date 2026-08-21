@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 import pytest
 
@@ -5,9 +7,11 @@ from video_dataset_factory.caption import (
     CachedCaptioner,
     CaptionContext,
     HeuristicCaptioner,
+    OpenAIVisionCaptioner,
     batch_caption,
     build_captioner,
     build_dense_caption_prompt,
+    build_openai_vision_messages,
     build_vlm_messages,
     select_keyframes,
 )
@@ -28,6 +32,20 @@ class NativeBatchCaptioner:
 
     def batch_caption(self, clips, contexts=None):
         return [f"batch-{index}" for index, _ in enumerate(clips)]
+
+
+class FakeHTTPResponse:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def read(self):
+        return json.dumps(self.payload).encode("utf-8")
 
 
 def test_dense_caption_prompt_includes_motion_context():
@@ -68,6 +86,18 @@ def test_qwen_vlm_messages_use_image_content_blocks():
     assert "fast pan" in messages[0]["content"][2]["text"]
 
 
+def test_openai_vision_messages_embed_keyframes_as_images():
+    frames = [np.zeros((4, 4, 3), dtype=np.uint8) for _ in range(2)]
+
+    messages = build_openai_vision_messages(frames)
+
+    assert messages[0]["role"] == "user"
+    assert messages[0]["content"][0]["type"] == "text"
+    assert messages[0]["content"][1]["type"] == "image_url"
+    assert messages[0]["content"][1]["image_url"]["url"].startswith("data:image/jpeg;base64,")
+    assert messages[0]["content"][2]["type"] == "image_url"
+
+
 def test_llava_vlm_messages_use_image_tokens():
     frames = [np.zeros((4, 4, 3), dtype=np.uint8) for _ in range(3)]
 
@@ -92,16 +122,41 @@ def test_batch_caption_rejects_context_length_mismatch():
         batch_caption(HeuristicCaptioner(), clips, contexts=[None])
 
 
-def test_build_captioner_falls_back_when_transformers_model_is_not_configured(tmp_path):
-    captioner = build_captioner(
-        {
-            "provider": "transformers",
-            "model_name": None,
-            "cache_path": str(tmp_path / "cache.json"),
-        }
+def test_build_captioner_requires_transformers_model_name():
+    with pytest.raises(ValueError, match="model_name"):
+        build_captioner({"provider": "transformers", "model_name": None})
+
+
+def test_build_captioner_requires_openai_api_key():
+    with pytest.raises(ValueError, match="OPENAI_API_KEY"):
+        build_captioner({"provider": "openai", "api_key": ""})
+
+
+def test_openai_captioner_calls_vision_endpoint(monkeypatch):
+    captured = {}
+
+    def fake_urlopen(request, timeout):
+        captured["timeout"] = timeout
+        captured["payload"] = json.loads(request.data.decode("utf-8"))
+        return FakeHTTPResponse(
+            {"choices": [{"message": {"content": "A person walks across a bright room."}}]}
+        )
+
+    monkeypatch.setattr("video_dataset_factory.caption.urllib.request.urlopen", fake_urlopen)
+    frames = [np.zeros((4, 4, 3), dtype=np.uint8) for _ in range(3)]
+    captioner = OpenAIVisionCaptioner(
+        api_key="test-key",
+        model_name="vision-test-model",
+        max_keyframes=2,
+        timeout_sec=12,
     )
 
-    assert isinstance(captioner.backend, HeuristicCaptioner)
+    caption = captioner.caption(frames)
+
+    assert caption == "A person walks across a bright room."
+    assert captured["timeout"] == 12
+    assert captured["payload"]["model"] == "vision-test-model"
+    assert len(captured["payload"]["messages"][0]["content"]) == 3
 
 
 def test_cached_captioner_reuses_clip_id(tmp_path):
