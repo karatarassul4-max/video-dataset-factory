@@ -114,10 +114,10 @@ flowchart LR
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
-pip install -e .[dev,scene,dashboard]
+pip install -e .[dev,scene,dashboard,ocr,aesthetic]
 ```
 
-You also need `ffmpeg` available on PATH for scene export.
+You also need `ffmpeg` available on PATH for scene export. The default config runs real EasyOCR text/watermark filtering and LAION-style aesthetic scoring, so the first run downloads OCR, CLIP, and LAION linear-head weights into local caches.
 
 Split a raw video into normalized scene clips:
 
@@ -163,7 +163,7 @@ Deploy on Streamlit Community Cloud:
 | Branch | `main` |
 | Main file path | `dashboards/app.py` |
 
-The public upload path uses real Groq VLM captioning. Add `GROQ_API_KEY` in Streamlit app secrets before using `upload videos`; optionally add `GROQ_MODEL` to override the default `qwen/qwen3.6-27b` model. The app sends sampled keyframes, not the full video file, to the vision model.
+The public upload path uses real Groq VLM captioning, EasyOCR text/watermark filtering, and LAION-style aesthetic scoring. Add `GROQ_API_KEY` in Streamlit app secrets before using `upload videos`; optionally add `GROQ_MODEL` to override the default `qwen/qwen3.6-27b` model. The app sends sampled keyframes, not the full video file, to the vision model.
 
 The public app can process up to 10 short uploaded videos in a temporary session. For 50+ clips, run the CLI locally or on a worker, then upload the generated `manifest.jsonl` in the app's `upload manifest JSONL` mode. See [docs/STREAMLIT_DEPLOY.md](docs/STREAMLIT_DEPLOY.md) for details.
 
@@ -201,11 +201,7 @@ captioning:
 
 Groq vision uses the OpenAI-compatible Chat Completions endpoint. The current `qwen/qwen3.6-27b` vision model accepts up to 3 images per request, so the Groq adapter caps sampled keyframes at 3. The older `meta-llama/llama-4-scout-17b-16e-instruct` model is no longer a safe default for free/developer tiers. See the Groq vision docs: https://console.groq.com/docs/vision
 
-Enable real OCR filtering:
-
-```bash
-pip install -e .[ocr]
-```
+Real OCR filtering is enabled in `configs/default.yaml`:
 
 ```yaml
 ocr:
@@ -220,23 +216,20 @@ quality:
 
 `easyocr` works fully from Python dependencies. `tesseract` also requires the system Tesseract binary to be installed and visible on PATH.
 
-Enable LAION-style aesthetic filtering with a downloaded linear-head checkpoint:
-
-```bash
-pip install -e .[aesthetic]
-```
+LAION-style aesthetic filtering is enabled in `configs/default.yaml`:
 
 ```yaml
 aesthetic:
   provider: laion
   model_name: openai/clip-vit-base-patch32
-  head_path: models/laion_aesthetic_head.pt
+  head_path: null
+  head_url: https://github.com/LAION-AI/aesthetic-predictor/raw/main/sa_0_4_vit_b_32_linear.pth
   max_frames: 4
 quality:
   min_aesthetic_score: 5.0
 ```
 
-The LAION adapter uses normalized CLIP image embeddings plus a linear head. Use `provider: clip` for a prompt-comparison proxy when you do not have linear-head weights yet.
+The LAION adapter uses normalized CLIP image embeddings plus the official LAION `vit_b_32` linear head. With `head_path: null`, the checkpoint is downloaded automatically into `~/.cache/video_dataset_factory/`. Use `provider: clip` for a prompt-comparison proxy when you intentionally want a no-checkpoint fallback.
 
 Run with an optional local Hugging Face VLM backend by changing `configs/default.yaml`:
 
@@ -257,63 +250,3 @@ Run tests:
 ```bash
 pytest
 ```
-
-## Manifest Schema
-
-Each output row contains:
-
-- `clip_id`
-- `source_path`
-- `duration_sec`
-- `fps`
-- `width`
-- `height`
-- `frame_count`
-- `blur_score`
-- `brightness_score`
-- `motion_score`
-- `ocr_text_area_ratio`
-- `aesthetic_score`
-- `perceptual_hash`
-- `duplicate_of`
-- `caption`
-- `motion_caption`
-- `keep`
-- `reject_reasons`
-
-## Evaluation Plan
-
-The project will report:
-
-- dataset yield: accepted vs rejected clips;
-- reject precision: manual inspection of rejected samples;
-- caption usefulness: small manual rubric over 30 clips;
-- duplicate rate: near-duplicate groups found by pHash threshold;
-- throughput: clips per minute, single process vs Ray;
-- cost estimate: CPU/GPU minutes per 1,000 clips;
-- inference benchmark: latency, peak VRAM, and quality proxy for selected model settings.
-
-## Failed Experiments Log
-
-This section is intentionally part of the project. Research engineering is not just final numbers; it is also explaining why certain filters, prompts, thresholds, or optimizations failed.
-
-Planned entries:
-
-- Scene threshold too low over-splits videos with camera shake.
-- OCR threshold too strict and rejects useful videos with small signs.
-- Motion threshold too high and removes slow cinematic shots.
-- Generic VLM prompts produce object lists but miss temporal dynamics.
-- Ray overhead can dominate throughput on tiny clip folders.
-- Aggressive inference optimization trades smoothness for speed.
-- CLIP aesthetic prompts can prefer glossy images over dataset diversity.
-- pHash threshold above 8 starts grouping visually different clips with similar composition.
-- LAION aesthetic thresholds may over-prefer glossy clips and reduce dataset diversity.
-
-## Roadmap
-
-- Run the pipeline on 50-100 real Creative Commons clips and commit the result report.
-- Tune OCR and LAION aesthetic thresholds from manual review precision.
-
-## License
-
-MIT
