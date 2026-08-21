@@ -36,9 +36,19 @@ captioning:
   cache_path: outputs/caption_cache.json
   prompt_style: dense_video
 
+ocr:
+  # provider: proxy | easyocr | tesseract | none
+  provider: proxy
+  languages: [en]
+  gpu: false
+  max_frames: 4
+  min_confidence: 0.35
+
 aesthetic:
+  # provider: none | heuristic | clip | laion
   provider: none
   model_name: openai/clip-vit-base-patch32
+  head_path: null
   device: auto
   max_frames: 4
 
