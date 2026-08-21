@@ -10,6 +10,7 @@ from uuid import uuid4
 import pandas as pd
 import streamlit as st
 
+from video_dataset_factory.caption import OpenAIVisionCaptioner
 from video_dataset_factory.duplicates import mark_duplicates
 from video_dataset_factory.pipeline import process_video
 from video_dataset_factory.reporting import render_markdown_summary, summarize_manifest
@@ -188,15 +189,14 @@ def process_uploaded_files(
     config = AppConfig()
     config.pipeline.sample_frames = sample_frames
     config.quality.max_duration_sec = max_duration_sec
-    config.captioning = {
-        "provider": "openai",
-        "api_key": vlm_api_key,
-        "model_name": vlm_model,
-        "max_keyframes": max_vlm_keyframes,
-        "max_new_tokens": 180,
-        "cache_path": None,
-    }
+    config.captioning = {"provider": "manual"}
     config.aesthetic = {"provider": "heuristic"}
+    captioner = OpenAIVisionCaptioner(
+        api_key=vlm_api_key,
+        model_name=vlm_model,
+        max_keyframes=max_vlm_keyframes,
+        max_new_tokens=180,
+    )
 
     records: list[ClipRecord] = []
     progress = st.progress(0.0)
@@ -206,7 +206,7 @@ def process_uploaded_files(
         path = upload_dir / safe_name
         path.write_bytes(uploaded_file.getbuffer())
         try:
-            record = process_video(path, config)
+            record = process_video(path, config, captioner=captioner)
             records.append(record.model_copy(update={"source_path": str(path)}))
         except Exception as exc:  # noqa: BLE001
             st.error(f"Could not process {uploaded_file.name}: {exc}")
