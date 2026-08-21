@@ -189,12 +189,12 @@ captioning:
   provider: groq
   api_key: ${GROQ_API_KEY}
   model_name: qwen/qwen3.6-27b
-  max_keyframes: 4
+  max_keyframes: 3
   max_new_tokens: 180
   cache_path: outputs/caption_cache.json
 ```
 
-Groq vision uses the OpenAI-compatible Chat Completions endpoint and supports up to 5 images per request for the selected model. The older `meta-llama/llama-4-scout-17b-16e-instruct` model is no longer a safe default for free/developer tiers. See the Groq vision docs: https://console.groq.com/docs/vision
+Groq vision uses the OpenAI-compatible Chat Completions endpoint. The current `qwen/qwen3.6-27b` vision model accepts up to 3 images per request, so the Groq adapter caps sampled keyframes at 3. The older `meta-llama/llama-4-scout-17b-16e-instruct` model is no longer a safe default for free/developer tiers. See the Groq vision docs: https://console.groq.com/docs/vision
 
 Run with an optional local Hugging Face VLM backend by changing `configs/default.yaml`:
 
