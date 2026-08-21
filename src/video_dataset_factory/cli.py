@@ -13,10 +13,12 @@ from video_dataset_factory.benchmark_inference import (
     write_markdown_report,
 )
 from video_dataset_factory.benchmark_pipeline import run_pipeline_benchmark, write_benchmark_report
+from video_dataset_factory.caption import build_captioner
 from video_dataset_factory.config import load_config
 from video_dataset_factory.duplicates import find_duplicate_pairs, mark_duplicates
 from video_dataset_factory.manifest import append_jsonl, read_jsonl, write_jsonl
 from video_dataset_factory.pipeline import process_video
+from video_dataset_factory.quality import build_aesthetic_scorer, build_text_detector
 from video_dataset_factory.reporting import summarize_manifest, write_markdown_summary
 from video_dataset_factory.scene_split import split_video_into_scenes
 from video_dataset_factory.video_io import is_video_file
@@ -61,7 +63,19 @@ def process_folder_command(
 
         records = process_videos_with_ray(videos, config)
     else:
-        records = [process_video(path, config) for path in videos]
+        captioner = build_captioner(config.captioning)
+        aesthetic_scorer = build_aesthetic_scorer(config.aesthetic)
+        text_detector = build_text_detector(config.ocr)
+        records = [
+            process_video(
+                path,
+                config,
+                captioner=captioner,
+                aesthetic_scorer=aesthetic_scorer,
+                text_detector=text_detector,
+            )
+            for path in videos
+        ]
 
     append_jsonl(config.pipeline.output_manifest, records)
     _print_records(records)
