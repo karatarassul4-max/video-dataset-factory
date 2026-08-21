@@ -9,6 +9,7 @@ from video_dataset_factory.quality import (
     build_aesthetic_scorer,
     build_text_detector,
     quality_reject_reasons,
+    resolve_laion_head_path,
 )
 from video_dataset_factory.schema import QualityConfig, VideoMetadata
 
@@ -78,9 +79,30 @@ def test_build_aesthetic_scorer_returns_none_by_default():
     assert build_aesthetic_scorer({}) is None
 
 
-def test_build_laion_aesthetic_requires_head_path():
-    with pytest.raises(ValueError, match="head_path"):
-        build_aesthetic_scorer({"provider": "laion"})
+def test_resolve_laion_head_path_uses_existing_file(tmp_path):
+    head = tmp_path / "head.pth"
+    head.write_bytes(b"weights")
+
+    assert resolve_laion_head_path(head_path=head, head_url=None) == head
+
+
+def test_resolve_laion_head_path_downloads_missing_file(tmp_path, monkeypatch):
+    head = tmp_path / "head.pth"
+
+    def fake_urlretrieve(url, filename):
+        assert url == "https://example.test/head.pth"
+        np.asarray([1], dtype=np.float32).tofile(filename)
+        return filename, None
+
+    monkeypatch.setattr("video_dataset_factory.quality.urllib.request.urlretrieve", fake_urlretrieve)
+
+    assert resolve_laion_head_path(head_path=head, head_url="https://example.test/head.pth") == head
+    assert head.exists()
+
+
+def test_resolve_laion_head_path_requires_url_for_missing_file(tmp_path):
+    with pytest.raises(FileNotFoundError, match="LAION aesthetic head not found"):
+        resolve_laion_head_path(head_path=tmp_path / "missing.pth", head_url=None)
 
 
 def test_aggregate_quality_uses_aesthetic_scorer():
