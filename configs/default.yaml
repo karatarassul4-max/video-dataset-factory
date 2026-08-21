@@ -13,7 +13,7 @@ quality:
   max_ocr_text_area_ratio: 0.08
   min_motion_score: 0.2
   max_motion_score: 50.0
-  min_aesthetic_score: null
+  min_aesthetic_score: 5.0
 
 scene_split:
   detector: content
@@ -37,18 +37,17 @@ captioning:
   prompt_style: dense_video
 
 ocr:
-  # provider: proxy | easyocr | tesseract | none
-  provider: proxy
+  provider: easyocr
   languages: [en]
   gpu: false
   max_frames: 4
   min_confidence: 0.35
 
 aesthetic:
-  # provider: none | heuristic | clip | laion
-  provider: none
+  provider: laion
   model_name: openai/clip-vit-base-patch32
   head_path: null
+  head_url: https://github.com/LAION-AI/aesthetic-predictor/raw/main/sa_0_4_vit_b_32_linear.pth
   device: auto
   max_frames: 4
 
