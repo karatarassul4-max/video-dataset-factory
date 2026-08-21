@@ -10,7 +10,11 @@ from uuid import uuid4
 import pandas as pd
 import streamlit as st
 
-from video_dataset_factory.caption import GROQ_DEFAULT_VISION_MODEL, GroqVisionCaptioner
+from video_dataset_factory.caption import (
+    GROQ_DEFAULT_VISION_MODEL,
+    GROQ_MAX_KEYFRAMES,
+    GroqVisionCaptioner,
+)
 from video_dataset_factory.duplicates import mark_duplicates
 from video_dataset_factory.pipeline import process_video
 from video_dataset_factory.reporting import render_markdown_summary, summarize_manifest
@@ -107,7 +111,13 @@ def render_upload_mode() -> list[ClipRecord] | None:
     )
     threshold = st.slider("Near-duplicate pHash threshold", 0, 16, 6)
     sample_frames = st.slider("Frames sampled per clip", 4, 16, 8, step=2)
-    max_vlm_keyframes = st.slider("VLM keyframes per clip", 1, 5, 4)
+    max_vlm_keyframes = st.slider(
+        "VLM keyframes per clip",
+        1,
+        GROQ_MAX_KEYFRAMES,
+        GROQ_MAX_KEYFRAMES,
+        help="Groq qwen/qwen3.6-27b currently accepts up to 3 images per request.",
+    )
     vlm_model = st.sidebar.text_input("Groq VLM model", get_secret_or_env("GROQ_MODEL") or DEFAULT_VLM_MODEL)
     st.sidebar.caption("Upload processing uses Groq vision. Set GROQ_API_KEY in app secrets.")
 
