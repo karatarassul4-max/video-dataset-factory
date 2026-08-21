@@ -38,6 +38,7 @@ ocr = [
     "pytesseract>=0.3",
 ]
 aesthetic = [
+    "open_clip_torch>=2.26",
     "pillow>=10.0",
     "torch>=2.1",
     "transformers>=4.44",
