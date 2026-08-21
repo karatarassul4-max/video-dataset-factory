@@ -1,3 +1,5 @@
+import pytest
+
 from video_dataset_factory.reporting import render_markdown_summary, summarize_manifest
 from video_dataset_factory.schema import ClipRecord
 
@@ -37,10 +39,10 @@ def test_summarize_manifest_counts_yield_and_reasons():
     assert summary.rejected_clips == 2
     assert summary.duplicate_clips == 1
     assert summary.acceptance_rate == 1 / 3
-    assert summary.average_motion_p95_score == 2.5
-    assert summary.average_motion_stability_score == 0.8
-    assert summary.average_contrast_score == 42.0
-    assert summary.average_colorfulness_score == 18.0
+    assert summary.average_motion_p95_score == pytest.approx(2.5)
+    assert summary.average_motion_stability_score == pytest.approx(0.8)
+    assert summary.average_contrast_score == pytest.approx(42.0)
+    assert summary.average_colorfulness_score == pytest.approx(18.0)
     assert summary.reject_reasons == {"near_duplicate": 1, "too_blurry": 1}
 
 
