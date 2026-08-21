@@ -13,6 +13,7 @@ import cv2
 import numpy as np
 
 GROQ_DEFAULT_VISION_MODEL = "qwen/qwen3.6-27b"
+GROQ_MAX_KEYFRAMES = 3
 
 
 @dataclass(frozen=True)
@@ -264,7 +265,7 @@ class GroqVisionCaptioner(OpenAICompatibleVisionCaptioner):
         model_name: str = GROQ_DEFAULT_VISION_MODEL,
         base_url: str = "https://api.groq.com/openai/v1/chat/completions",
         max_new_tokens: int = 180,
-        max_keyframes: int = 4,
+        max_keyframes: int = GROQ_MAX_KEYFRAMES,
         timeout_sec: float = 90.0,
     ):
         super().__init__(
@@ -273,7 +274,7 @@ class GroqVisionCaptioner(OpenAICompatibleVisionCaptioner):
             base_url=base_url,
             api_key_name="GROQ_API_KEY",
             max_new_tokens=max_new_tokens,
-            max_keyframes=max_keyframes,
+            max_keyframes=min(max_keyframes, GROQ_MAX_KEYFRAMES),
             timeout_sec=timeout_sec,
             token_parameter="max_completion_tokens",
         )
@@ -371,7 +372,7 @@ def build_captioner(settings: dict) -> Captioner:
             model_name=model_name or GROQ_DEFAULT_VISION_MODEL,
             base_url=settings.get("base_url", "https://api.groq.com/openai/v1/chat/completions"),
             max_new_tokens=int(settings.get("max_new_tokens", 180)),
-            max_keyframes=int(settings.get("max_keyframes", 4)),
+            max_keyframes=int(settings.get("max_keyframes", GROQ_MAX_KEYFRAMES)),
             timeout_sec=float(settings.get("timeout_sec", 90.0)),
         )
     elif provider == "transformers":
