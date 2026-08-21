@@ -36,6 +36,11 @@ def brightness_score(frame: np.ndarray) -> float:
     return float(np.mean(gray))
 
 
+def contrast_score(frame: np.ndarray) -> float:
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    return float(np.std(gray))
+
+
 def colorfulness_score(frame: np.ndarray) -> float:
     blue, green, red = cv2.split(frame.astype(np.float32))
     rg = np.abs(red - green)
@@ -59,6 +64,8 @@ def aggregate_quality(
         return {
             "blur_score": None,
             "brightness_score": None,
+            "contrast_score": None,
+            "colorfulness_score": None,
             "ocr_text_area_ratio": None,
             "aesthetic_score": None,
         }
@@ -72,6 +79,8 @@ def aggregate_quality(
     return {
         "blur_score": float(np.median([blur_score(frame) for frame in frames])),
         "brightness_score": float(np.median([brightness_score(frame) for frame in frames])),
+        "contrast_score": float(np.median([contrast_score(frame) for frame in frames])),
+        "colorfulness_score": float(np.median([colorfulness_score(frame) for frame in frames])),
         "ocr_text_area_ratio": text_area_ratio,
         "aesthetic_score": None if aesthetic_scorer is None else aesthetic_scorer.score(frames),
     }
