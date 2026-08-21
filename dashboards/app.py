@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,7 @@ DEMO_MANIFEST_PATH = Path("examples/demo_manifest.jsonl")
 MAX_UPLOAD_FILES = 10
 MAX_TOTAL_UPLOAD_MB = 250
 MAX_SINGLE_UPLOAD_MB = 50
+DEFAULT_VLM_MODEL = "gpt-4o-mini"
 
 
 def normalize_records(records: pd.DataFrame) -> pd.DataFrame:
@@ -39,6 +41,17 @@ def normalize_records(records: pd.DataFrame) -> pd.DataFrame:
     if "duplicate_of" not in normalized:
         normalized["duplicate_of"] = None
     return normalized
+
+
+def get_secret_or_env(name: str) -> str | None:
+    value = os.environ.get(name)
+    if value:
+        return value
+    try:
+        secret = st.secrets.get(name)
+    except Exception:  # noqa: BLE001
+        return None
+    return str(secret) if secret else None
 
 
 def apply_filters(records: pd.DataFrame) -> pd.DataFrame:
@@ -93,6 +106,9 @@ def render_upload_mode() -> list[ClipRecord] | None:
     )
     threshold = st.slider("Near-duplicate pHash threshold", 0, 16, 6)
     sample_frames = st.slider("Frames sampled per clip", 4, 16, 8, step=2)
+    max_vlm_keyframes = st.slider("VLM keyframes per clip", 1, 6, 4)
+    vlm_model = st.sidebar.text_input("VLM model", get_secret_or_env("VLM_MODEL") or DEFAULT_VLM_MODEL)
+    st.sidebar.caption("Upload processing uses a real vision model. Set OPENAI_API_KEY in app secrets.")
 
     if not uploaded_files:
         st.info("Upload clips to build a temporary manifest, or switch to demo data.")
@@ -104,12 +120,20 @@ def render_upload_mode() -> list[ClipRecord] | None:
         return st.session_state.get("uploaded_records")
 
     if st.button("Process uploaded videos", type="primary"):
-        with st.spinner("Processing uploaded videos..."):
+        api_key = get_secret_or_env("OPENAI_API_KEY")
+        if not api_key:
+            st.error("OPENAI_API_KEY is required because uploaded clips use real VLM captioning.")
+            return st.session_state.get("uploaded_records")
+
+        with st.spinner("Processing uploaded videos with VLM captions..."):
             records = process_uploaded_files(
                 uploaded_files,
                 sample_frames=sample_frames,
                 threshold=threshold,
                 max_duration_sec=float(max_duration_sec),
+                vlm_model=vlm_model,
+                vlm_api_key=api_key,
+                max_vlm_keyframes=max_vlm_keyframes,
             )
         st.session_state["uploaded_records"] = records
         st.success(f"Processed {len(records)} uploaded clip(s).")
@@ -156,12 +180,22 @@ def process_uploaded_files(
     sample_frames: int,
     threshold: int,
     max_duration_sec: float,
+    vlm_model: str,
+    vlm_api_key: str,
+    max_vlm_keyframes: int,
 ) -> list[ClipRecord]:
     upload_dir = get_upload_dir()
     config = AppConfig()
     config.pipeline.sample_frames = sample_frames
     config.quality.max_duration_sec = max_duration_sec
-    config.captioning = {"provider": "heuristic", "cache_path": None}
+    config.captioning = {
+        "provider": "openai",
+        "api_key": vlm_api_key,
+        "model_name": vlm_model,
+        "max_keyframes": max_vlm_keyframes,
+        "max_new_tokens": 180,
+        "cache_path": None,
+    }
     config.aesthetic = {"provider": "heuristic"}
 
     records: list[ClipRecord] = []
