@@ -7,6 +7,8 @@ from video_dataset_factory.caption import CaptionContext, Captioner, build_capti
 from video_dataset_factory.duplicates import clip_perceptual_hash
 from video_dataset_factory.motion import motion_caption, motion_reject_reasons, motion_score
 from video_dataset_factory.quality import (
+    AestheticScorer,
+    TextDetector,
     aggregate_quality,
     build_aesthetic_scorer,
     build_text_detector,
@@ -21,10 +23,16 @@ def stable_clip_id(path: Path) -> str:
     return hashlib.sha1(resolved).hexdigest()[:16]
 
 
-def process_video(path: Path, config: AppConfig, captioner: Captioner | None = None) -> ClipRecord:
+def process_video(
+    path: Path,
+    config: AppConfig,
+    captioner: Captioner | None = None,
+    aesthetic_scorer: AestheticScorer | None = None,
+    text_detector: TextDetector | None = None,
+) -> ClipRecord:
     captioner = captioner or build_captioner(config.captioning)
-    aesthetic_scorer = build_aesthetic_scorer(config.aesthetic)
-    text_detector = build_text_detector(config.ocr)
+    aesthetic_scorer = aesthetic_scorer or build_aesthetic_scorer(config.aesthetic)
+    text_detector = text_detector or build_text_detector(config.ocr)
     metadata = probe_video(path)
     frames = sample_frames(path, config.pipeline.sample_frames)
 
