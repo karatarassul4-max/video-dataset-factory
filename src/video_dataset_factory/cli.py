@@ -15,6 +15,14 @@ from video_dataset_factory.benchmark_inference import (
 from video_dataset_factory.benchmark_pipeline import run_pipeline_benchmark, write_benchmark_report
 from video_dataset_factory.caption import build_captioner
 from video_dataset_factory.config import load_config
+from video_dataset_factory.diffusion_finetune import (
+    DiffusionDatasetConfig,
+    DiffusionLoraCommandConfig,
+    build_diffusers_lora_shell_command,
+    prepare_diffusion_lora_dataset,
+    write_diffusion_lora_report,
+    write_prepared_dataset_json,
+)
 from video_dataset_factory.duplicates import find_duplicate_pairs, mark_duplicates
 from video_dataset_factory.manifest import append_jsonl, read_jsonl, write_jsonl
 from video_dataset_factory.pipeline import process_video
@@ -189,6 +197,49 @@ def benchmark_training_command(
     _print_training_benchmark(result)
 
 
+@app.command("prepare-diffusion-lora-data")
+def prepare_diffusion_lora_data_command(
+    manifest: Path = typer.Argument(..., exists=True, readable=True),
+    output_dir: Path = typer.Option(Path("outputs/diffusion_lora_dataset"), "--output-dir"),
+    report: Path = typer.Option(Path("outputs/diffusion_lora_plan.md"), "--report"),
+    json_report: Path = typer.Option(Path("outputs/diffusion_lora_dataset.json"), "--json-report"),
+    frames_per_clip: int = typer.Option(1, "--frames-per-clip", min=1),
+    max_clips: int | None = typer.Option(None, "--max-clips", min=1),
+    resolution: int = typer.Option(512, "--resolution", min=64),
+    caption_prefix: str = typer.Option("", "--caption-prefix"),
+    allow_missing_videos: bool = typer.Option(False, "--allow-missing-videos"),
+    train_script_path: Path = typer.Option(Path("scripts/train_text_to_image_lora.py")),
+    model_name: str = typer.Option("runwayml/stable-diffusion-v1-5", "--model"),
+    train_steps: int = typer.Option(120, "--train-steps", min=1),
+    batch_size: int = typer.Option(1, "--batch-size", min=1),
+    rank: int = typer.Option(8, "--rank", min=1),
+) -> None:
+    dataset = prepare_diffusion_lora_dataset(
+        DiffusionDatasetConfig(
+            manifest_path=manifest,
+            output_dir=output_dir,
+            frames_per_clip=frames_per_clip,
+            max_clips=max_clips,
+            resolution=resolution,
+            caption_prefix=caption_prefix,
+            allow_missing_videos=allow_missing_videos,
+        )
+    )
+    command_config = DiffusionLoraCommandConfig(
+        train_data_dir=output_dir,
+        pretrained_model_name_or_path=model_name,
+        train_script_path=train_script_path,
+        resolution=resolution,
+        max_train_steps=train_steps,
+        train_batch_size=batch_size,
+        rank=rank,
+    )
+    command = build_diffusers_lora_shell_command(command_config)
+    write_prepared_dataset_json(json_report, dataset)
+    write_diffusion_lora_report(report, dataset, command, model_name)
+    _print_diffusion_dataset(dataset, report)
+
+
 def _print_records(records) -> None:
     table = Table(title="Video Dataset Factory")
     table.add_column("clip_id")
@@ -307,6 +358,23 @@ def _print_training_benchmark(result) -> None:
         result.distributed_type,
         f"{result.samples_per_second:.2f}",
         peak_vram,
+    )
+    console.print(table)
+
+
+def _print_diffusion_dataset(dataset, report: Path) -> None:
+    table = Table(title="Diffusion LoRA Dataset")
+    table.add_column("source clips")
+    table.add_column("images")
+    table.add_column("skipped")
+    table.add_column("metadata")
+    table.add_column("report")
+    table.add_row(
+        str(dataset.source_clip_count),
+        str(dataset.image_count),
+        str(dataset.skipped_clip_count),
+        dataset.metadata_path,
+        str(report),
     )
     console.print(table)
 
