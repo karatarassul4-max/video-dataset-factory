@@ -5,7 +5,7 @@ from pathlib import Path
 
 from video_dataset_factory.caption import CaptionContext, Captioner, build_captioner
 from video_dataset_factory.duplicates import clip_perceptual_hash
-from video_dataset_factory.motion import motion_caption, motion_reject_reasons, motion_score
+from video_dataset_factory.motion import motion_caption, motion_metrics, motion_reject_reasons
 from video_dataset_factory.quality import (
     AestheticScorer,
     TextDetector,
@@ -41,11 +41,11 @@ def process_video(
         aesthetic_scorer=aesthetic_scorer,
         text_detector=text_detector,
     )
-    motion = motion_score(frames)
-    motion_text = motion_caption(motion)
+    motion = motion_metrics(frames)
+    motion_text = motion_caption(motion["motion_score"])
 
     reasons = quality_reject_reasons(metadata, quality, config.quality)
-    reasons.extend(motion_reject_reasons(motion, config.quality))
+    reasons.extend(motion_reject_reasons(motion["motion_score"], config.quality))
 
     clip_id = stable_clip_id(path)
     context = CaptionContext(clip_id=clip_id, source_path=str(path), motion_caption=motion_text)
@@ -60,7 +60,11 @@ def process_video(
         frame_count=metadata.frame_count,
         blur_score=quality["blur_score"],
         brightness_score=quality["brightness_score"],
-        motion_score=motion,
+        contrast_score=quality["contrast_score"],
+        colorfulness_score=quality["colorfulness_score"],
+        motion_score=motion["motion_score"],
+        motion_p95_score=motion["motion_p95_score"],
+        motion_stability_score=motion["motion_stability_score"],
         ocr_text_area_ratio=quality["ocr_text_area_ratio"],
         aesthetic_score=quality["aesthetic_score"],
         perceptual_hash=clip_perceptual_hash(frames),
