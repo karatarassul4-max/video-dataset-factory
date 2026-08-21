@@ -21,6 +21,12 @@ from video_dataset_factory.pipeline import process_video
 from video_dataset_factory.quality import build_aesthetic_scorer, build_text_detector
 from video_dataset_factory.reporting import summarize_manifest, write_markdown_summary
 from video_dataset_factory.scene_split import split_video_into_scenes
+from video_dataset_factory.training_benchmark import (
+    TrainingBenchmarkConfig,
+    run_training_benchmark,
+    write_training_json_report,
+    write_training_markdown_report,
+)
 from video_dataset_factory.video_io import is_video_file
 
 app = typer.Typer(help="Build filtered, captioned video dataset manifests.")
@@ -152,6 +158,37 @@ def benchmark_inference_command(
     _print_inference_benchmark(results)
 
 
+@app.command("benchmark-training")
+def benchmark_training_command(
+    manifest: Path | None = typer.Option(None, "--manifest", exists=True, readable=True),
+    output: Path = typer.Option(Path("outputs/training_benchmark.json"), "--output", "-o"),
+    markdown_output: Path = typer.Option(
+        Path("outputs/training_benchmark.md"), "--markdown-output"
+    ),
+    dry_run: bool = typer.Option(True, "--dry-run/--real", help="Use estimates instead of GPU training."),
+    samples: int = typer.Option(512, "--samples", min=1),
+    batch_size: int = typer.Option(32, "--batch-size", min=1),
+    epochs: int = typer.Option(1, "--epochs", min=1),
+    mixed_precision: str = typer.Option("no", "--mixed-precision", help="no, fp16, or bf16."),
+    gradient_accumulation_steps: int = typer.Option(1, "--gradient-accumulation-steps", min=1),
+) -> None:
+    config = TrainingBenchmarkConfig(
+        manifest_path=manifest,
+        output_path=output,
+        markdown_output_path=markdown_output,
+        samples=samples,
+        batch_size=batch_size,
+        epochs=epochs,
+        mixed_precision=mixed_precision,
+        gradient_accumulation_steps=gradient_accumulation_steps,
+        dry_run=dry_run,
+    )
+    result = run_training_benchmark(config)
+    write_training_json_report(output, result)
+    write_training_markdown_report(markdown_output, result)
+    _print_training_benchmark(result)
+
+
 def _print_records(records) -> None:
     table = Table(title="Video Dataset Factory")
     table.add_column("clip_id")
@@ -251,6 +288,26 @@ def _print_inference_benchmark(results) -> None:
         peak_vram = "n/a" if result.peak_vram_mb is None else f"{result.peak_vram_mb:.2f}"
         table.add_row(result.name, f"{result.seconds:.4f}", peak_vram, result.notes)
 
+    console.print(table)
+
+
+def _print_training_benchmark(result) -> None:
+    table = Table(title="Training Benchmark")
+    table.add_column("mode")
+    table.add_column("device")
+    table.add_column("gpus")
+    table.add_column("distributed")
+    table.add_column("samples/sec")
+    table.add_column("peak VRAM MB")
+    peak_vram = "n/a" if result.peak_vram_mb is None else f"{result.peak_vram_mb:.2f}"
+    table.add_row(
+        result.mode,
+        result.device,
+        str(result.gpu_count),
+        result.distributed_type,
+        f"{result.samples_per_second:.2f}",
+        peak_vram,
+    )
     console.print(table)
 
 
