@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import urllib.request
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -7,6 +8,12 @@ import cv2
 import numpy as np
 
 from video_dataset_factory.schema import QualityConfig, VideoMetadata
+
+DEFAULT_LAION_HEAD_URL = (
+    "https://github.com/LAION-AI/aesthetic-predictor/"
+    "raw/main/sa_0_4_vit_b_32_linear.pth"
+)
+DEFAULT_LAION_HEAD_PATH = Path.home() / ".cache" / "video_dataset_factory" / "sa_0_4_vit_b_32_linear.pth"
 
 
 class AestheticScorer(Protocol):
@@ -181,12 +188,10 @@ class LAIONAestheticScorer:
         self,
         model_name: str = "openai/clip-vit-base-patch32",
         head_path: str | Path | None = None,
+        head_url: str | None = DEFAULT_LAION_HEAD_URL,
         device: str = "auto",
         max_frames: int = 4,
     ):
-        if head_path is None:
-            raise ValueError("LAION aesthetic scoring requires aesthetic.head_path with linear-head weights")
-
         try:
             import torch
             from PIL import Image
@@ -204,7 +209,7 @@ class LAIONAestheticScorer:
 
         projection_dim = int(getattr(self.model.config, "projection_dim", 512))
         self.linear_head = torch.nn.Linear(projection_dim, 1).to(self.device)
-        self._load_linear_head(Path(head_path))
+        self._load_linear_head(resolve_laion_head_path(head_path, head_url))
         self.linear_head.eval()
 
     def score(self, frames: list[np.ndarray]) -> float | None:
@@ -223,9 +228,6 @@ class LAIONAestheticScorer:
         return float(scores.median().clamp(0.0, 10.0).item())
 
     def _load_linear_head(self, head_path: Path) -> None:
-        if not head_path.exists():
-            raise FileNotFoundError(f"LAION aesthetic head not found: {head_path}")
-
         state = self.torch.load(head_path, map_location=self.device)
         if isinstance(state, dict) and "state_dict" in state:
             state = state["state_dict"]
@@ -317,6 +319,20 @@ class TesseractTextDetector:
         return min(1.0, area / frame_area)
 
 
+def resolve_laion_head_path(
+    head_path: str | Path | None = None,
+    head_url: str | None = DEFAULT_LAION_HEAD_URL,
+) -> Path:
+    path = Path(head_path).expanduser() if head_path else DEFAULT_LAION_HEAD_PATH
+    if path.exists():
+        return path
+    if not head_url:
+        raise FileNotFoundError(f"LAION aesthetic head not found: {path}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    urllib.request.urlretrieve(head_url, path)
+    return path
+
+
 def build_text_detector(settings: dict | None) -> TextDetector | None:
     settings = settings or {}
     provider = settings.get("provider", "proxy")
@@ -355,6 +371,7 @@ def build_aesthetic_scorer(settings: dict | None) -> AestheticScorer | None:
         return LAIONAestheticScorer(
             model_name=settings.get("model_name", "openai/clip-vit-base-patch32"),
             head_path=settings.get("head_path"),
+            head_url=settings.get("head_url", DEFAULT_LAION_HEAD_URL),
             device=settings.get("device", "auto"),
             max_frames=int(settings.get("max_frames", 4)),
         )
