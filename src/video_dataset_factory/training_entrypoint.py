@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
 from video_dataset_factory.training_benchmark import (
@@ -49,9 +50,18 @@ def main() -> None:
         dry_run=args.dry_run,
     )
     result = run_training_benchmark(config)
-    write_training_json_report(args.output, result)
-    write_training_markdown_report(args.markdown_output, result)
-    print(result)
+    if _is_main_process():
+        write_training_json_report(args.output, result)
+        write_training_markdown_report(args.markdown_output, result)
+        print(result)
+
+
+def _is_main_process() -> bool:
+    for name in ("LOCAL_RANK", "RANK", "ACCELERATE_PROCESS_INDEX"):
+        value = os.environ.get(name)
+        if value not in (None, "", "0"):
+            return False
+    return True
 
 
 if __name__ == "__main__":
