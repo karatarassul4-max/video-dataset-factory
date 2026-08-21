@@ -30,12 +30,26 @@ class FakePoolerOutput:
         self.pooler_output = pooler_output
 
 
+class FakeProjection:
+    def __init__(self, in_features):
+        self.in_features = in_features
+
+    def __call__(self, pooled):
+        return pooled + 1
+
+
 class FakeCLIPModelWithOutput:
+    visual_projection = FakeProjection(in_features=2)
+
     def get_image_features(self, **inputs):
         return FakePoolerOutput(inputs["pixel_values"])
 
-    def visual_projection(self, pooled):
-        return pooled + 1
+
+class FakeCLIPModelWithAlreadyProjectedOutput:
+    visual_projection = FakeProjection(in_features=768)
+
+    def get_image_features(self, **inputs):
+        return FakePoolerOutput(inputs["pixel_values"])
 
 
 class FakeCLIPModelWithTensor:
@@ -117,6 +131,17 @@ def test_get_clip_image_features_projects_pooler_output_objects():
     features = _get_clip_image_features(FakeCLIPModelWithOutput(), {"pixel_values": values})
 
     np.testing.assert_array_equal(features, values + 1)
+
+
+def test_get_clip_image_features_keeps_already_projected_pooler_outputs():
+    values = np.ones((4, 512), dtype=np.float32)
+
+    features = _get_clip_image_features(
+        FakeCLIPModelWithAlreadyProjectedOutput(),
+        {"pixel_values": values},
+    )
+
+    assert features is values
 
 
 def test_resolve_laion_head_path_uses_existing_file(tmp_path):
