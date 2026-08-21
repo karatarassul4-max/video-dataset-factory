@@ -222,7 +222,7 @@ class LAIONAestheticScorer:
         inputs = {key: value.to(self.device) for key, value in inputs.items()}
 
         with self.torch.no_grad():
-            features = self.model.get_image_features(**inputs)
+            features = _get_clip_image_features(self.model, inputs)
             features = features / features.norm(dim=-1, keepdim=True).clamp_min(1e-6)
             scores = self.linear_head(features).squeeze(-1)
         return float(scores.median().clamp(0.0, 10.0).item())
@@ -391,6 +391,29 @@ def _resolve_torch_device(torch_module: Any, device: str) -> str:
     if device == "auto":
         return "cuda" if torch_module.cuda.is_available() else "cpu"
     return device
+
+
+def _get_clip_image_features(model: Any, inputs: dict[str, Any]) -> Any:
+    if hasattr(model, "get_image_features"):
+        features = model.get_image_features(**inputs)
+        if hasattr(features, "norm"):
+            return features
+        if hasattr(features, "image_embeds"):
+            return features.image_embeds
+        if hasattr(features, "pooler_output"):
+            pooled = features.pooler_output
+            projection = getattr(model, "visual_projection", None)
+            return projection(pooled) if projection is not None else pooled
+
+    vision_model = getattr(model, "vision_model", None)
+    if vision_model is None:
+        raise TypeError("CLIP model does not expose image features or a vision_model output")
+
+    outputs = vision_model(**inputs)
+    if not hasattr(outputs, "pooler_output"):
+        raise TypeError("CLIP vision output does not include pooler_output")
+    projection = getattr(model, "visual_projection", None)
+    return projection(outputs.pooler_output) if projection is not None else outputs.pooler_output
 
 
 def _bbox_area_ratio(
