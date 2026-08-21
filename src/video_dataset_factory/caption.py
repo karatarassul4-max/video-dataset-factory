@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
@@ -49,6 +52,29 @@ def select_keyframes(frames: list[np.ndarray], max_frames: int = 4) -> list[np.n
 
     indices = np.linspace(0, len(frames) - 1, num=max_frames, dtype=int)
     return [frames[int(index)] for index in indices]
+
+
+def encode_frame_as_data_url(frame: np.ndarray, jpeg_quality: int = 85) -> str:
+    ok, encoded = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, jpeg_quality])
+    if not ok:
+        raise ValueError("Could not encode frame as JPEG")
+    payload = base64.b64encode(encoded.tobytes()).decode("ascii")
+    return f"data:image/jpeg;base64,{payload}"
+
+
+def build_openai_vision_messages(
+    frames: list[np.ndarray],
+    context: CaptionContext | None = None,
+) -> list[dict[str, Any]]:
+    content: list[dict[str, Any]] = [{"type": "text", "text": build_dense_caption_prompt(context)}]
+    for frame in frames:
+        content.append(
+            {
+                "type": "image_url",
+                "image_url": {"url": encode_frame_as_data_url(frame), "detail": "low"},
+            }
+        )
+    return [{"role": "user", "content": content}]
 
 
 def build_vlm_messages(
@@ -108,7 +134,7 @@ class HeuristicCaptioner:
             lighting = "normally lit"
 
         motion = context.motion_caption if context and context.motion_caption else "motion not estimated"
-        return f"A {lighting} video clip; {motion}. Replace with VLM dense captioning."
+        return f"A {lighting} video clip; {motion}."
 
 
 class CachedCaptioner:
@@ -146,6 +172,61 @@ class CachedCaptioner:
         self.cache_path.parent.mkdir(parents=True, exist_ok=True)
         with self.cache_path.open("w", encoding="utf-8") as handle:
             json.dump(self.cache, handle, indent=2, ensure_ascii=False)
+
+
+class OpenAIVisionCaptioner:
+    def __init__(
+        self,
+        api_key: str,
+        model_name: str = "gpt-4o-mini",
+        base_url: str = "https://api.openai.com/v1/chat/completions",
+        max_new_tokens: int = 160,
+        max_keyframes: int = 4,
+        timeout_sec: float = 90.0,
+    ):
+        if not api_key:
+            raise ValueError("OpenAI vision captioning requires OPENAI_API_KEY")
+        self.api_key = api_key
+        self.model_name = model_name
+        self.base_url = base_url
+        self.max_new_tokens = max_new_tokens
+        self.max_keyframes = max_keyframes
+        self.timeout_sec = timeout_sec
+
+    def caption(self, frames: list[np.ndarray], context: CaptionContext | None = None) -> str:
+        keyframes = select_keyframes(frames, self.max_keyframes)
+        payload = {
+            "model": self.model_name,
+            "messages": build_openai_vision_messages(keyframes, context),
+            "max_tokens": self.max_new_tokens,
+            "temperature": 0.2,
+        }
+        request = urllib.request.Request(
+            self.base_url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+                "User-Agent": "video-dataset-factory/0.1",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout_sec) as response:
+                data = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            error_body = exc.read().decode("utf-8", errors="replace")
+            raise RuntimeError(f"OpenAI vision captioning failed: {exc.code} {error_body}") from exc
+        except urllib.error.URLError as exc:
+            raise RuntimeError(f"OpenAI vision captioning failed: {exc.reason}") from exc
+
+        try:
+            caption = data["choices"][0]["message"]["content"].strip()
+        except (KeyError, IndexError, AttributeError) as exc:
+            raise RuntimeError(f"Unexpected OpenAI vision response: {data}") from exc
+        if not caption:
+            raise RuntimeError("OpenAI vision captioning returned an empty caption")
+        return caption
 
 
 class TransformersVLMCaptioner:
@@ -223,9 +304,20 @@ class TransformersVLMCaptioner:
 def build_captioner(settings: dict) -> Captioner:
     provider = settings.get("provider", "heuristic")
     model_name = settings.get("model_name")
-    if provider == "heuristic" or not model_name:
+    if provider == "heuristic":
         backend: Captioner = HeuristicCaptioner()
+    elif provider == "openai":
+        backend = OpenAIVisionCaptioner(
+            api_key=settings.get("api_key", ""),
+            model_name=model_name or "gpt-4o-mini",
+            base_url=settings.get("base_url", "https://api.openai.com/v1/chat/completions"),
+            max_new_tokens=int(settings.get("max_new_tokens", 160)),
+            max_keyframes=int(settings.get("max_keyframes", 4)),
+            timeout_sec=float(settings.get("timeout_sec", 90.0)),
+        )
     elif provider == "transformers":
+        if not model_name:
+            raise ValueError("Transformers VLM captioning requires captioning.model_name")
         backend = TransformersVLMCaptioner(
             model_name=model_name,
             device=settings.get("device", "auto"),
