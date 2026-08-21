@@ -55,7 +55,7 @@ Target headline once experiments are complete:
 
 ## Portfolio Docs
 
-- [Role alignment](docs/HIGGSFIELD_ALIGNMENT.md): how this project maps to video generative AI research engineering work.
+- [Role alignment](docs/ROLE_ALIGNMENT.md): how this project maps to video generative AI research engineering work.
 - [Experiment runbook](docs/RUNBOOK.md): end-to-end commands for producing a real dataset report.
 - [Streamlit deployment](docs/STREAMLIT_DEPLOY.md): public app deployment settings and limits.
 - [Experiment log](docs/EXPERIMENT_LOG.md): hypotheses, risks, and failed-experiment tracking.
@@ -101,7 +101,7 @@ flowchart LR
 - Optical-flow motion statistics.
 - Text/watermark filtering through a fast proxy, EasyOCR, or Tesseract.
 - Captioning interface with JSON cache, keyframe selection, Qwen2-VL/LLaVA prompt formatting, batched caption generation, Groq/OpenAI-compatible hosted VLM calls, and optional local Transformers VLM backend.
-- Aesthetic scoring via CPU heuristic, optional CLIP preference proxy, or LAION-style linear head over CLIP image embeddings.
+- Aesthetic scoring via CPU heuristic, optional CLIP preference proxy, or LAION-style linear head over open_clip image embeddings.
 - Perceptual hashes and manifest-level near-duplicate rejection.
 - Markdown dataset summary reports for portfolio-ready experiment writeups.
 - Streamlit dashboard with small upload processing, manifest upload for large runs, filters, score charts, clip review, and JSONL/CSV/Markdown exports.
@@ -221,15 +221,17 @@ LAION-style aesthetic filtering is enabled in `configs/default.yaml`:
 ```yaml
 aesthetic:
   provider: laion
-  model_name: openai/clip-vit-base-patch32
+  model_name: ViT-B-32
+  pretrained: openai
+  head_variant: vit_b_32
   head_path: null
   head_url: https://github.com/LAION-AI/aesthetic-predictor/raw/main/sa_0_4_vit_b_32_linear.pth
   max_frames: 4
 quality:
-  min_aesthetic_score: 5.0
+  min_aesthetic_score: 4.0
 ```
 
-The LAION adapter uses normalized CLIP image embeddings plus the official LAION `vit_b_32` linear head. With `head_path: null`, the checkpoint is downloaded automatically into `~/.cache/video_dataset_factory/`. Use `provider: clip` for a prompt-comparison proxy when you intentionally want a no-checkpoint fallback.
+The LAION adapter uses normalized open_clip image embeddings plus the official LAION `vit_b_32` linear head. With `head_path: null`, the checkpoint is downloaded automatically into `~/.cache/video_dataset_factory/`. Use `provider: clip` for a prompt-comparison proxy when you intentionally want a no-checkpoint fallback.
 
 Run with an optional local Hugging Face VLM backend by changing `configs/default.yaml`:
 
