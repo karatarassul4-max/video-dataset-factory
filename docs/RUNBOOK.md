@@ -14,17 +14,24 @@ Recommended starting settings are in `configs/default.yaml`: 24 FPS, 512 px squa
 
 ## 2. Process Dataset
 
-For a lightweight CPU run, keep heuristic captioning, proxy OCR, and no aesthetic model:
+Install the full default pipeline dependencies before a real run:
+
+```bash
+pip install -e .[dev,scene,dashboard,ocr,aesthetic]
+```
+
+The default config uses:
+
+- heuristic captions for local CLI smoke runs, unless you switch `captioning.provider` to `groq` or `transformers`;
+- EasyOCR for text/watermark filtering;
+- LAION-style aesthetic scoring with an auto-downloaded `vit_b_32` linear head;
+- optical-flow motion gates, blur/brightness gates, and duration/resolution gates.
 
 ```bash
 vdf process-folder data/clips --output outputs/manifest.jsonl
 ```
 
-For real OCR/watermark filtering, install OCR dependencies and configure `easyocr` or `tesseract`:
-
-```bash
-pip install -e .[ocr]
-```
+Current real quality backend settings:
 
 ```yaml
 ocr:
@@ -35,36 +42,31 @@ ocr:
   min_confidence: 0.35
 quality:
   max_ocr_text_area_ratio: 0.08
-```
 
-`easyocr` is the easiest portable backend. `tesseract` requires the system Tesseract binary in addition to the Python package.
-
-For a richer run, enable heuristic aesthetic scoring:
-
-```yaml
-aesthetic:
-  provider: heuristic
-quality:
-  min_aesthetic_score: 5.0
-```
-
-For LAION-style aesthetic scoring, install aesthetic dependencies and provide a linear-head checkpoint trained on normalized CLIP image embeddings:
-
-```bash
-pip install -e .[aesthetic]
-```
-
-```yaml
 aesthetic:
   provider: laion
   model_name: openai/clip-vit-base-patch32
-  head_path: models/laion_aesthetic_head.pt
+  head_path: null
+  head_url: https://github.com/LAION-AI/aesthetic-predictor/raw/main/sa_0_4_vit_b_32_linear.pth
   max_frames: 4
 quality:
   min_aesthetic_score: 5.0
 ```
 
-Use `provider: clip` when you want a no-checkpoint prompt-comparison proxy instead of the LAION linear head.
+`easyocr` is the easiest portable OCR backend. `tesseract` is also supported, but it requires the system Tesseract binary in addition to the Python package.
+
+For a lightweight CPU-only smoke run, create a small override config that turns the heavy backends off:
+
+```yaml
+ocr:
+  provider: proxy
+aesthetic:
+  provider: none
+quality:
+  min_aesthetic_score: null
+```
+
+Use `aesthetic.provider: clip` when you intentionally want a no-checkpoint CLIP prompt-comparison proxy instead of the LAION linear head.
 
 For VLM captions, install optional dependencies and configure a model:
 
@@ -79,6 +81,8 @@ captioning:
   model_family: qwen2-vl
   max_keyframes: 4
 ```
+
+The Streamlit upload path uses Groq vision captioning, so it requires `GROQ_API_KEY` in app secrets.
 
 ## 3. Remove Near-Duplicates
 
