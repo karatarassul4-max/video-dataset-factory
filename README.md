@@ -158,7 +158,7 @@ Deploy on Streamlit Community Cloud:
 | Branch | `main` |
 | Main file path | `dashboards/app.py` |
 
-The public upload path uses real Groq VLM captioning. Add `GROQ_API_KEY` in Streamlit app secrets before using `upload videos`; optionally add `GROQ_MODEL` to override the default `meta-llama/llama-4-scout-17b-16e-instruct` model. The app sends sampled keyframes, not the full video file, to the vision model.
+The public upload path uses real Groq VLM captioning. Add `GROQ_API_KEY` in Streamlit app secrets before using `upload videos`; optionally add `GROQ_MODEL` to override the default `qwen/qwen3.6-27b` model. The app sends sampled keyframes, not the full video file, to the vision model.
 
 The public app can process up to 10 short uploaded videos in a temporary session. For 50+ clips, run the CLI locally or on a worker, then upload the generated `manifest.jsonl` in the app's `upload manifest JSONL` mode. See [docs/STREAMLIT_DEPLOY.md](docs/STREAMLIT_DEPLOY.md) for details.
 
@@ -188,13 +188,13 @@ Run with the Groq hosted VLM backend:
 captioning:
   provider: groq
   api_key: ${GROQ_API_KEY}
-  model_name: meta-llama/llama-4-scout-17b-16e-instruct
+  model_name: qwen/qwen3.6-27b
   max_keyframes: 4
   max_new_tokens: 180
   cache_path: outputs/caption_cache.json
 ```
 
-Groq vision uses the OpenAI-compatible Chat Completions endpoint and supports up to 5 images per request for the selected model. See the Groq vision docs: https://console.groq.com/docs/vision
+Groq vision uses the OpenAI-compatible Chat Completions endpoint and supports up to 5 images per request for the selected model. The older `meta-llama/llama-4-scout-17b-16e-instruct` model is no longer a safe default for free/developer tiers. See the Groq vision docs: https://console.groq.com/docs/vision
 
 Run with an optional local Hugging Face VLM backend by changing `configs/default.yaml`:
 
