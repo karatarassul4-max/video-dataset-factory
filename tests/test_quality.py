@@ -9,6 +9,8 @@ from video_dataset_factory.quality import (
     brightness_score,
     build_aesthetic_scorer,
     build_text_detector,
+    colorfulness_score,
+    contrast_score,
     quality_reject_reasons,
     resolve_laion_head_path,
 )
@@ -64,11 +66,31 @@ def test_brightness_score_tracks_pixel_intensity():
     assert brightness_score(bright) > brightness_score(dark)
 
 
+def test_contrast_score_tracks_pixel_variance():
+    flat = np.full((32, 32, 3), 128, dtype=np.uint8)
+    split = flat.copy()
+    split[:, :16] = 0
+    split[:, 16:] = 255
+
+    assert contrast_score(split) > contrast_score(flat)
+
+
+def test_colorfulness_score_tracks_channel_variation():
+    gray = np.full((32, 32, 3), 128, dtype=np.uint8)
+    colorful = np.zeros((32, 32, 3), dtype=np.uint8)
+    colorful[:, :16, 2] = 255
+    colorful[:, 16:, 1] = 255
+
+    assert colorfulness_score(colorful) > colorfulness_score(gray)
+
+
 def test_aggregate_quality_handles_empty_frames():
     result = aggregate_quality([])
 
     assert result["blur_score"] is None
     assert result["brightness_score"] is None
+    assert result["contrast_score"] is None
+    assert result["colorfulness_score"] is None
     assert result["ocr_text_area_ratio"] is None
     assert result["aesthetic_score"] is None
 
