@@ -5,7 +5,6 @@ import math
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Iterable
 
 
 @dataclass(frozen=True)
@@ -247,9 +246,7 @@ def _contrastive_loss(outputs, functional) -> object:
     video = functional.normalize(video, dim=-1)
     text = functional.normalize(text, dim=-1)
     logits = logit_scale * video @ text.t()
-    labels = functional.one_hot(
-        logits.new_tensor(range(logits.shape[0]), dtype=None).long(), num_classes=logits.shape[0]
-    ).argmax(dim=1)
+    labels = logits.new_tensor(list(range(logits.shape[0]))).long()
     return (functional.cross_entropy(logits, labels) + functional.cross_entropy(logits.t(), labels)) / 2
 
 
