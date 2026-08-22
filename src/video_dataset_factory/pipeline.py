@@ -3,7 +3,12 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from video_dataset_factory.caption import CaptionContext, Captioner, build_captioner
+from video_dataset_factory.caption import (
+    CaptionContext,
+    Captioner,
+    build_captioner,
+    caption_reject_reasons,
+)
 from video_dataset_factory.duplicates import clip_perceptual_hash
 from video_dataset_factory.motion import motion_caption, motion_metrics, motion_reject_reasons
 from video_dataset_factory.quality import (
@@ -49,6 +54,8 @@ def process_video(
 
     clip_id = stable_clip_id(path)
     context = CaptionContext(clip_id=clip_id, source_path=str(path), motion_caption=motion_text)
+    caption = captioner.caption(frames, context)
+    reasons.extend(caption_reject_reasons(caption))
 
     return ClipRecord(
         clip_id=clip_id,
@@ -68,7 +75,7 @@ def process_video(
         ocr_text_area_ratio=quality["ocr_text_area_ratio"],
         aesthetic_score=quality["aesthetic_score"],
         perceptual_hash=clip_perceptual_hash(frames),
-        caption=captioner.caption(frames, context),
+        caption=caption,
         motion_caption=motion_text,
         keep=not reasons,
         reject_reasons=reasons,
