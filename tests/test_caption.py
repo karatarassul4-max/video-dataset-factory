@@ -16,6 +16,7 @@ from video_dataset_factory.caption import (
     build_dense_caption_prompt,
     build_openai_vision_messages,
     build_vlm_messages,
+    caption_reject_reasons,
     sanitize_caption,
     select_keyframes,
 )
@@ -63,7 +64,8 @@ def test_dense_caption_prompt_includes_motion_context():
 
     assert "temporal dynamics" in prompt
     assert "Moderate motion" in prompt
-    assert "no reasoning" in prompt
+    assert "Do not include reasoning" in prompt
+    assert "visible text overlay" in prompt
 
 
 def test_sanitize_caption_removes_reasoning_markup():
@@ -72,6 +74,29 @@ def test_sanitize_caption_removes_reasoning_markup():
     caption = sanitize_caption(raw)
 
     assert caption == "A player dribbles quickly."
+
+
+def test_sanitize_caption_prefers_final_caption_over_analysis():
+    raw = "Frame Analysis: Frame 1 has text. Final dense caption: A clean shot of a cyclist."
+
+    caption = sanitize_caption(raw)
+
+    assert caption == "A clean shot of a cyclist."
+
+
+def test_caption_reject_reasons_detects_model_analysis_and_overlay_text():
+    caption = (
+        "The user wants a dense caption. Frame Analysis: Frame 1 shows a woman laughing. "
+        "Text overlay says Will Eleven."
+    )
+
+    reasons = caption_reject_reasons(caption)
+
+    assert reasons == ["caption_contains_reasoning", "caption_mentions_text_overlay"]
+
+
+def test_caption_reject_reasons_detects_incomplete_output():
+    assert caption_reject_reasons("A public event scene with") == ["caption_incomplete"]
 
 
 def test_select_keyframes_spreads_frames_across_clip():
