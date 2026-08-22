@@ -18,6 +18,17 @@ GROQ_MAX_KEYFRAMES = 3
 THINK_BLOCK_RE = re.compile(r"<think>.*?</think>", re.IGNORECASE | re.DOTALL)
 THINK_TAG_RE = re.compile(r"</?think>", re.IGNORECASE)
 CAPTION_PREFIX_RE = re.compile(r"^(?:final\s+)?(?:dense\s+)?caption\s*:\s*", re.IGNORECASE)
+FINAL_CAPTION_RE = re.compile(r"(?:final\s+)?(?:dense\s+)?caption\s*:\s*(.+)$", re.IGNORECASE | re.DOTALL)
+ANALYSIS_MARKER_RE = re.compile(
+    r"\b(the user wants|frame analysis|provided frames|frame\s*\d+|bullet labels?)\b|\*\*frame",
+    re.IGNORECASE,
+)
+TEXT_ARTIFACT_RE = re.compile(
+    r"\b(text overlay|overlay text|overlaid text|text is overlaid|visible text|subtitles?|"
+    r"watermarks?|logo|username|handle|caption text|on-screen text|text says|words? on screen)\b",
+    re.IGNORECASE,
+)
+INCOMPLETE_END_RE = re.compile(r"\b(with|and|or|of|in|on|at|the|a|an|to|from|while|showing)$", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -45,19 +56,40 @@ class BatchCaptioner(Captioner, Protocol):
 def build_dense_caption_prompt(context: CaptionContext | None = None) -> str:
     motion_hint = context.motion_caption if context and context.motion_caption else "unknown motion"
     return (
-        "Describe this video clip for text-to-video model training. Return only the final dense "
-        "caption, with no reasoning, no analysis, no <think> tags, and no bullet labels. Include "
-        "subject, action, camera motion, scene, lighting, visual style, and temporal dynamics. "
+        "Describe this video clip for text-to-video model training. Return exactly one clean "
+        "caption paragraph of 35-90 words. Do not include reasoning, frame-by-frame analysis, "
+        "Markdown, bullet points, labels, quotes, or phrases like 'the user wants'. Include the "
+        "main subject, action, camera motion, scene, lighting, visual style, and temporal "
+        "dynamics. If visible subtitles, logos, watermarks, usernames, or text overlays appear, "
+        "mention them briefly as visible text overlay. "
         f"Motion estimate: {motion_hint}. Avoid guessing identities or protected attributes."
     )
 
 
 def sanitize_caption(text: str) -> str:
     caption = THINK_BLOCK_RE.sub("", text)
-    caption = THINK_TAG_RE.sub("", caption)
+    caption = THINK_TAG_RE.sub("", caption).strip()
+    final_match = FINAL_CAPTION_RE.search(caption)
+    if final_match:
+        caption = final_match.group(1)
     caption = CAPTION_PREFIX_RE.sub("", caption.strip())
     caption = re.sub(r"\s+", " ", caption).strip()
     return caption
+
+
+def caption_reject_reasons(caption: str | None) -> list[str]:
+    if not caption or not caption.strip():
+        return ["caption_empty"]
+
+    reasons: list[str] = []
+    normalized = caption.strip()
+    if ANALYSIS_MARKER_RE.search(normalized):
+        reasons.append("caption_contains_reasoning")
+    if TEXT_ARTIFACT_RE.search(normalized):
+        reasons.append("caption_mentions_text_overlay")
+    if _caption_looks_incomplete(normalized):
+        reasons.append("caption_incomplete")
+    return reasons
 
 
 def select_keyframes(frames: list[np.ndarray], max_frames: int = 4) -> list[np.ndarray]:
@@ -277,7 +309,7 @@ class GroqVisionCaptioner(OpenAICompatibleVisionCaptioner):
         api_key: str,
         model_name: str = GROQ_DEFAULT_VISION_MODEL,
         base_url: str = "https://api.groq.com/openai/v1/chat/completions",
-        max_new_tokens: int = 180,
+        max_new_tokens: int = 220,
         max_keyframes: int = GROQ_MAX_KEYFRAMES,
         timeout_sec: float = 90.0,
     ):
@@ -384,7 +416,7 @@ def build_captioner(settings: dict) -> Captioner:
             api_key=settings.get("api_key", ""),
             model_name=model_name or GROQ_DEFAULT_VISION_MODEL,
             base_url=settings.get("base_url", "https://api.groq.com/openai/v1/chat/completions"),
-            max_new_tokens=int(settings.get("max_new_tokens", 180)),
+            max_new_tokens=int(settings.get("max_new_tokens", 220)),
             max_keyframes=int(settings.get("max_keyframes", GROQ_MAX_KEYFRAMES)),
             timeout_sec=float(settings.get("timeout_sec", 90.0)),
         )
@@ -405,3 +437,12 @@ def build_captioner(settings: dict) -> Captioner:
     if cache_path:
         return CachedCaptioner(backend, Path(cache_path))
     return backend
+
+
+def _caption_looks_incomplete(caption: str) -> bool:
+    stripped = caption.strip()
+    if not stripped:
+        return True
+    if stripped[-1] in ".!?":
+        return False
+    return bool(INCOMPLETE_END_RE.search(stripped))
